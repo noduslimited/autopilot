@@ -10,6 +10,7 @@ interface RegisterOrgBody {
   phone: string;
   address: string;
   careTypes: string[];
+  termsAccepted: boolean;
 }
 
 function isRegisterOrgBody(value: unknown): value is RegisterOrgBody {
@@ -23,8 +24,21 @@ function isRegisterOrgBody(value: unknown): value is RegisterOrgBody {
     typeof body.phone === "string" &&
     typeof body.address === "string" &&
     Array.isArray(body.careTypes) &&
-    body.careTypes.every((careType) => typeof careType === "string")
+    body.careTypes.every((careType) => typeof careType === "string") &&
+    typeof body.termsAccepted === "boolean"
   );
+}
+
+// Netlify's edge sets x-nf-client-connection-ip; x-forwarded-for's first
+// entry is the more general fallback (both for local dev, where neither
+// is set, and any future host). Source: Security and Data Privacy
+// Document section 2.3 — acceptance must be recorded with an IP.
+function getClientIp(request: Request): string | null {
+  const nfIp = request.headers.get("x-nf-client-connection-ip");
+  if (nfIp) return nfIp;
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  if (forwardedFor) return forwardedFor.split(",")[0].trim();
+  return null;
 }
 
 // Creates the organisation record for Step 1+2 of the registration wizard.
@@ -49,6 +63,13 @@ export async function POST(request: Request) {
 
   if (!body.name.trim() || !body.email.trim() || !body.phone.trim() || !body.address.trim()) {
     return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
+  }
+
+  if (!body.termsAccepted) {
+    return NextResponse.json(
+      { error: "You must agree to the Terms of Service and Privacy Policy." },
+      { status: 400 },
+    );
   }
 
   const supabase = createAdminClient();
@@ -83,6 +104,8 @@ export async function POST(request: Request) {
       status: "trial",
       trial_start_date: trialStart.toISOString(),
       trial_end_date: trialEnd.toISOString(),
+      terms_accepted_at: new Date().toISOString(),
+      terms_accepted_ip: getClientIp(request),
     })
     .select("id")
     .single();

@@ -934,6 +934,8 @@ export type Database = {
           stripe_customer_id: string | null
           stripe_plan_tier: string | null
           stripe_subscription_id: string | null
+          terms_accepted_at: string | null
+          terms_accepted_ip: string | null
           trial_end_date: string | null
           trial_start_date: string | null
           updated_at: string
@@ -962,6 +964,8 @@ export type Database = {
           stripe_customer_id?: string | null
           stripe_plan_tier?: string | null
           stripe_subscription_id?: string | null
+          terms_accepted_at?: string | null
+          terms_accepted_ip?: string | null
           trial_end_date?: string | null
           trial_start_date?: string | null
           updated_at?: string
@@ -990,6 +994,8 @@ export type Database = {
           stripe_customer_id?: string | null
           stripe_plan_tier?: string | null
           stripe_subscription_id?: string | null
+          terms_accepted_at?: string | null
+          terms_accepted_ip?: string | null
           trial_end_date?: string | null
           trial_start_date?: string | null
           updated_at?: string

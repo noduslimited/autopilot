@@ -38,6 +38,7 @@ export function OrgRegisterForm() {
   const [lastName, setLastName] = useState("");
   const [workEmail, setWorkEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -111,6 +112,10 @@ export function OrgRegisterForm() {
       setStepError("Password must be at least 8 characters.");
       return;
     }
+    if (!termsAccepted) {
+      setStepError("You must agree to the Terms of Service and Privacy Policy to continue.");
+      return;
+    }
 
     setSubmitting(true);
 
@@ -125,6 +130,7 @@ export function OrgRegisterForm() {
         phone,
         address,
         careTypes,
+        termsAccepted,
       }),
     });
 
@@ -285,11 +291,31 @@ export function OrgRegisterForm() {
             </div>
           </div>
 
+          <label className="flex items-start gap-2 text-body text-text-primary">
+            <input
+              type="checkbox"
+              checked={termsAccepted}
+              onChange={(event) => setTermsAccepted(event.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-nhs-blue"
+            />
+            <span>
+              I agree to the{" "}
+              <Link href="/terms" target="_blank" className="text-nhs-blue">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" target="_blank" className="text-nhs-blue">
+                Privacy Policy
+              </Link>
+              .
+            </span>
+          </label>
+
           {stepError ? <p className="text-secondary text-nhs-red">{stepError}</p> : null}
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || !termsAccepted}
             className="w-full rounded-btn bg-nhs-blue px-4 py-3 text-body font-medium text-white disabled:opacity-50"
           >
             {submitting ? "Creating account…" : "Create account and start free trial"}
@@ -303,16 +329,6 @@ export function OrgRegisterForm() {
           </button>
 
           <p className="text-center text-secondary text-text-secondary">
-            By continuing you agree to our{" "}
-            <Link href="/terms" className="text-nhs-blue">
-              Terms of Service
-            </Link>{" "}
-            and{" "}
-            <Link href="/privacy" className="text-nhs-blue">
-              Privacy Policy
-            </Link>
-            .
-            <br />
             30-day free trial — no card required.
           </p>
         </form>
