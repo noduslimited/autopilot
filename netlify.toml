@@ -6,4 +6,8 @@
   package = "@netlify/plugin-nextjs"
 
 [build.environment]
-  NODE_VERSION = "18"
+  # TRD section 12.2's example pins Node 18, written before Session 1 chose
+  # Next.js 16.3.3 over the "14+" floor — Next 16 requires Node >=20.9.0
+  # (confirmed via node_modules/next/package.json's engines field), so 18
+  # would fail the build outright. Pinned to the LTS major that satisfies it.
+  NODE_VERSION = "20"
