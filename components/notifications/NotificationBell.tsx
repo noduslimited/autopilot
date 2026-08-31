@@ -40,6 +40,16 @@ export function NotificationBell({ userId }: { userId: string }) {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  // ManagerShell keeps the desktop sidebar permanently mounted (CSS-hidden
+  // below `lg`, not actually removed) and layers a second <Sidebar /> on
+  // top of it for the tablet hamburger overlay — so two NotificationBell
+  // instances can genuinely coexist for the same user at tablet width.
+  // A channel name keyed only on userId collides between them: the second
+  // .subscribe() call throws "cannot add postgres_changes callbacks ...
+  // after subscribe()", uncaught, crashing the page (reproduced live,
+  // tablet width / "Desktop site" mode). Suffixing with a per-mount
+  // instance id keeps every mount's channel genuinely unique.
+  const instanceIdRef = useRef<string>(Math.random().toString(36).slice(2));
 
   async function load() {
     const supabase = createClient();
@@ -55,7 +65,7 @@ export function NotificationBell({ userId }: { userId: string }) {
     void load();
     const supabase = createClient();
     const channel = supabase
-      .channel(`notifications-${userId}`)
+      .channel(`notifications-${userId}-${instanceIdRef.current}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, () => {
         void load();
       })
