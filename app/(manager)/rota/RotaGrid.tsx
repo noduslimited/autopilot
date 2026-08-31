@@ -64,6 +64,106 @@ function addDaysISO(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Maps a care need's key (AddClientForm's CARE_NEED_OPTIONS, care_plans.
+// what_we_help_with) onto visit_tasks' narrower task_type CHECK constraint
+// ('meal_prep' | 'medication' | 'moving' | 'personal_care' | 'log_notes' |
+// 'custom') and reuses the exact display labels already established in
+// CarePlanContent.tsx, so a generated task reads identically to how the
+// same need is shown on the client's own care plan.
+const TASK_TYPE_MAP: Record<string, string> = {
+  meal_prep: "meal_prep",
+  medication: "medication",
+  moving: "moving",
+  personal_care: "personal_care",
+};
+const CARE_NEED_LABELS: Record<string, string> = {
+  meal_prep: "Meal preparation",
+  medication: "Medication administration",
+  moving: "Moving and handling",
+  personal_care: "Personal care",
+  companionship: "Companionship",
+  housekeeping: "Housekeeping",
+};
+
+// Real gap found in Session 14's production smoke test: assigning a
+// client to a carer's shift here was the only place in the entire app
+// meant to put a visit on the books (the PRD's own empty-state copy —
+// "No visits scheduled today. Use the Rota..." — assumes this), but
+// nothing ever actually created the `visits` row itself; every prior
+// session tested visits via directly-seeded data instead. Called after
+// every successful shift save (all three branches: new insert, re-save
+// of an existing day, and editing an existing shift) so a manager
+// assigning a client here is what finally puts a real, carer-visible
+// visit on the books — one visit per assigned client per shift, skipped
+// if one already exists for that client/carer/day so re-saving a shift
+// doesn't duplicate it.
+async function ensureVisitsForShift(
+  supabase: ReturnType<typeof createClient>,
+  orgId: string,
+  staffId: string,
+  date: string,
+  startTime: string,
+  clientIds: string[],
+) {
+  const dayStart = `${date}T00:00:00`;
+  const dayEnd = `${addDaysISO(date, 1)}T00:00:00`;
+
+  for (const clientId of clientIds) {
+    const { data: existingVisit } = await supabase
+      .from("visits")
+      .select("id")
+      .eq("client_id", clientId)
+      .eq("assigned_carer_id", staffId)
+      .gte("scheduled_start", dayStart)
+      .lt("scheduled_start", dayEnd)
+      .maybeSingle();
+    if (existingVisit) continue;
+
+    const { data: client } = await supabase
+      .from("clients")
+      .select("visit_duration_minutes")
+      .eq("id", clientId)
+      .maybeSingle();
+    const { data: carePlan } = await supabase
+      .from("care_plans")
+      .select("what_we_help_with")
+      .eq("client_id", clientId)
+      .maybeSingle();
+
+    const scheduledStart = new Date(`${date}T${startTime}`);
+    const durationMinutes = client?.visit_duration_minutes ?? 60;
+    const scheduledEnd = new Date(scheduledStart.getTime() + durationMinutes * 60_000);
+
+    const needs = carePlan?.what_we_help_with ?? [];
+    const tasks = needs.map((need, index) => ({
+      task_type: TASK_TYPE_MAP[need] ?? "custom",
+      task_label: CARE_NEED_LABELS[need] ?? need,
+      task_order: index,
+      requires_emar: need === "medication",
+    }));
+
+    const { data: visit, error: visitError } = await supabase
+      .from("visits")
+      .insert({
+        org_id: orgId,
+        client_id: clientId,
+        assigned_carer_id: staffId,
+        scheduled_start: scheduledStart.toISOString(),
+        scheduled_end: scheduledEnd.toISOString(),
+        status: "scheduled",
+        tasks_total: tasks.length,
+      })
+      .select("id")
+      .single();
+
+    if (visitError || !visit) continue;
+
+    if (tasks.length > 0) {
+      await supabase.from("visit_tasks").insert(tasks.map((task) => ({ ...task, visit_id: visit.id, org_id: orgId })));
+    }
+  }
+}
+
 function weekRangeLabel(weekDates: string[]): string {
   const start = new Date(`${weekDates[0]}T00:00:00Z`);
   const end = new Date(`${weekDates[6]}T00:00:00Z`);
@@ -163,6 +263,13 @@ export function RotaGrid({
     const shiftType = isWeekend(form.date) ? "weekend" : "weekday";
 
     try {
+      const { data: userData } = await withTimeout(supabase.auth.getUser());
+      const { data: userRow, error: orgError } = await withTimeout(
+        supabase.from("users").select("org_id").eq("id", userData.user!.id).single(),
+      );
+      if (orgError) throw orgError;
+      const orgId = userRow!.org_id;
+
       if (editingShiftId) {
         const { error } = await withTimeout(
           supabase
@@ -175,6 +282,7 @@ export function RotaGrid({
             .eq("id", editingShiftId),
         );
         if (error) throw error;
+        await ensureVisitsForShift(supabase, orgId, form.staffId, form.date, form.startTime, form.clientIds);
         closeForm();
         router.refresh();
         return;
@@ -213,14 +321,9 @@ export function RotaGrid({
         );
         if (error) throw error;
       } else {
-        const { data: userData } = await withTimeout(supabase.auth.getUser());
-        const { data: userRow, error: orgError } = await withTimeout(
-          supabase.from("users").select("org_id").eq("id", userData.user!.id).single(),
-        );
-        if (orgError) throw orgError;
         const { error } = await withTimeout(
           supabase.from("rota_shifts").insert({
-            org_id: userRow!.org_id,
+            org_id: orgId,
             staff_id: form.staffId,
             shift_date: form.date,
             start_time: form.startTime,
@@ -231,6 +334,8 @@ export function RotaGrid({
         );
         if (error) throw error;
       }
+
+      await ensureVisitsForShift(supabase, orgId, form.staffId, form.date, form.startTime, form.clientIds);
 
       setConflictConfirm(null);
       closeForm();
