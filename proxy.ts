@@ -86,6 +86,29 @@ export async function proxy(request: NextRequest) {
   // register, reset-password, update-password) to their role home, or to
   // the originally requested page if one was captured in `redirect`.
   if (isAuthRoute(pathname)) {
+    // Exception: a staff/NOK invitation link (/register?token=...) or a
+    // password-reset link (/update-password?token_hash=...) represents an
+    // explicit, out-of-band request to act as a specific account — not
+    // "visit the login page while already logged in". Found live in
+    // Session 14's production smoke test: a browser with any existing
+    // session silently bounced an invite link straight to that session's
+    // own dashboard, the token was never consumed, and the invited
+    // person's account stayed stuck at status 'invited' with no
+    // explanation shown. Sign the stale session out and let the real
+    // accept flow (InvitationAcceptForm / update-password's verifyOtp)
+    // run instead, rather than redirecting away.
+    const hasAcceptToken =
+      (pathname === "/register" && request.nextUrl.searchParams.has("token")) ||
+      (pathname === "/update-password" &&
+        (request.nextUrl.searchParams.has("token_hash") || request.nextUrl.searchParams.has("token")));
+
+    if (hasAcceptToken) {
+      await supabase.auth.signOut();
+      const signedOutResponse = getResponse();
+      signedOutResponse.cookies.delete(LAST_ACTIVE_COOKIE);
+      return signedOutResponse;
+    }
+
     const redirectParam = request.nextUrl.searchParams.get("redirect");
     const target = redirectParam && isProtectedRoute(redirectParam) ? redirectParam : getRoleHomePage(role);
     return NextResponse.redirect(new URL(target, request.url));
