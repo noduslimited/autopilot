@@ -28,6 +28,7 @@ export function InvitationAcceptForm({ token }: { token: string }) {
   const searchParams = useSearchParams();
   const [state, setState] = useState<VerifyState>({ status: "verifying" });
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,6 +99,10 @@ export function InvitationAcceptForm({ token }: { token: string }) {
 
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
       return;
     }
 
@@ -190,6 +195,20 @@ export function InvitationAcceptForm({ token }: { token: string }) {
             required
             value={password}
             onChange={(event) => setPassword(event.target.value)}
+            className="w-full rounded-input border border-border-default bg-card-bg px-3 py-[9px] text-body text-text-primary outline-none focus:border-nhs-blue"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="confirmPassword" className="mb-1 block text-label text-text-secondary">
+            Confirm password
+          </label>
+          <input
+            id="confirmPassword"
+            type="password"
+            required
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
             className="w-full rounded-input border border-border-default bg-card-bg px-3 py-[9px] text-body text-text-primary outline-none focus:border-nhs-blue"
           />
         </div>

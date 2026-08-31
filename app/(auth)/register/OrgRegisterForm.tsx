@@ -38,6 +38,7 @@ export function OrgRegisterForm() {
   const [lastName, setLastName] = useState("");
   const [workEmail, setWorkEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -110,6 +111,10 @@ export function OrgRegisterForm() {
     }
     if (password.length < 8) {
       setStepError("Password must be at least 8 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setStepError("Passwords do not match.");
       return;
     }
     if (!termsAccepted) {
@@ -287,6 +292,11 @@ export function OrgRegisterForm() {
             <div className="mt-4">
               <Field label="Password — at least 8 characters" required>
                 <TextInput type="password" value={password} onChange={setPassword} />
+              </Field>
+            </div>
+            <div className="mt-4">
+              <Field label="Confirm password" required>
+                <TextInput type="password" value={confirmPassword} onChange={setConfirmPassword} />
               </Field>
             </div>
           </div>
