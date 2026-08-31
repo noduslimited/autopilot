@@ -106,6 +106,23 @@ export async function POST(request: Request) {
       trial_end_date: trialEnd.toISOString(),
       terms_accepted_at: new Date().toISOString(),
       terms_accepted_ip: getClientIp(request),
+      // Real gap found in Session 14's production smoke test:
+      // notification_settings' schema default is '{}', and
+      // notifyAndMaybeEmail() (lib/notifications/notify.ts) treats a
+      // missing key as off — so a brand-new org got zero notification
+      // emails (incidents, overdue invoices, expiring training/DBS,
+      // unassigned visits) until a manager happened to visit Settings
+      // and manually turn each one on. Defaulting all 5 email-togglable
+      // types on at registration matches what a real care provider would
+      // expect for something as urgent as an incident being filed —
+      // still fully overridable per type in Settings afterwards.
+      notification_settings: {
+        incident_filed_by_carer: true,
+        training_expiry_alerts: true,
+        dbs_expiry_alerts: true,
+        invoice_overdue: true,
+        unassigned_visit_alerts: true,
+      },
     })
     .select("id")
     .single();
