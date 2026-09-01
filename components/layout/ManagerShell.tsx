@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { Modal } from "@/components/ui/Modal";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 
 // Manager portal responsive shell. Source: Design System Document section
 // 10.1 — desktop (>=1024px) sidebar always visible; tablet (768-1023px)
@@ -106,6 +107,15 @@ export function ManagerShell({ children }: { children: ReactNode }) {
               {item.label}
             </Link>
           ))}
+        </div>
+        {/* Real gap found: the sign-out button has only ever lived inside
+            Sidebar.tsx (desktop/tablet), which mobile-width layouts never
+            render at all — there was no way to sign out on a phone-width
+            screen. Same full-width bordered danger-red style already
+            established by the carer profile page and family overview's
+            own sign-out buttons, for visual consistency across portals. */}
+        <div className="mt-3 border-t border-border-default pt-3">
+          <SignOutButton className="w-full rounded-btn border border-border-default bg-card-bg py-[10px] text-[13px] font-medium text-danger-red" />
         </div>
       </Modal>
     </div>
