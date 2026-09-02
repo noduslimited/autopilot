@@ -1,5 +1,8 @@
+import { NokMessagingToggle } from "./NokMessagingToggle";
+
 // Source: PRD section 4.3 (Client Profile — Overview tab)
 interface OverviewClient {
+  id: string;
   address: string;
   biography: string | null;
   nok_name: string | null;
@@ -12,6 +15,7 @@ interface OverviewClient {
   care_type: string;
   visit_frequency: string | null;
   visit_duration_minutes: number | null;
+  nok_messaging_enabled: boolean;
 }
 
 const CARE_TYPE_LABELS: Record<string, string> = {
@@ -84,6 +88,11 @@ export function OverviewTab({ client, carerName }: { client: OverviewClient; car
           {client.visit_frequency ? FREQUENCY_LABELS[client.visit_frequency] ?? client.visit_frequency : "Frequency not set"}
           {client.visit_duration_minutes ? ` · ${client.visit_duration_minutes} mins per visit` : ""}
         </p>
+      </div>
+
+      <div className="rounded-card border border-border-default bg-card-bg py-3.5 px-4">
+        <h2 className="text-subsection-heading text-text-primary">Family portal</h2>
+        <NokMessagingToggle clientId={client.id} initialEnabled={client.nok_messaging_enabled} />
       </div>
     </div>
   );

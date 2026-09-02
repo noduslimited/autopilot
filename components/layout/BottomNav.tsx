@@ -22,15 +22,22 @@ const FAMILY_ITEMS: NavItem[] = [
   { label: "Visits", href: "/family/visits", icon: "clock" },
   { label: "Care Plan", href: "/family/care-plan", icon: "file-text" },
   { label: "Messages", href: "/family/messages", icon: "message" },
+  { label: "Profile", href: "/family/profile", icon: "user" },
 ];
 
 export interface BottomNavProps {
   role: "carer" | "family_nok";
+  // Family portal only — when the manager has switched off NOK messaging
+  // for this client, the Messages tab shouldn't appear at all (Session:
+  // "does not appear at all in the NOK portal for that client"). Defaults
+  // to true so any call site that doesn't pass it keeps prior behaviour.
+  messagingEnabled?: boolean;
 }
 
-export function BottomNav({ role }: BottomNavProps) {
+export function BottomNav({ role, messagingEnabled = true }: BottomNavProps) {
   const pathname = usePathname();
-  const items = role === "carer" ? CARER_ITEMS : FAMILY_ITEMS;
+  const items =
+    role === "carer" ? CARER_ITEMS : FAMILY_ITEMS.filter((item) => messagingEnabled || item.href !== "/family/messages");
 
   return (
     <nav className="flex justify-around border-t border-border-default bg-surface-secondary px-4 pt-2.5 pb-3.5">

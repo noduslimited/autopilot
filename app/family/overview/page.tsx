@@ -9,6 +9,29 @@ import { ClientAvatar } from "@/components/clients/ClientAvatar";
 import { CriticalBadges, type CriticalBadgesClient } from "@/components/clients/CriticalBadges";
 import { Badge } from "@/components/ui/Badge";
 import { SignOutButton } from "@/components/auth/SignOutButton";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
+
+// Source: Gokul, direct request 2026-09-02. The NOK relationship field
+// describes the family member's relationship TO the client ("Jennifer is
+// Margaret's daughter"), not the other way round — the subtitle was
+// showing "Your daughter" to Jennifer, which reads as if Margaret is
+// Jennifer's daughter. Correctly inverted per the requested mapping.
+// clients has no gender column anywhere in the schema, so "use client
+// gender if known" always falls through to the stated neutral fallback
+// here — not fabricated, consistent with this project's standing rule
+// against inventing data with no real source.
+const RELATIONSHIP_LABELS: Record<string, string> = {
+  Son: "Your parent",
+  Daughter: "Your parent",
+  Spouse: "Your spouse",
+  Partner: "Your partner",
+  Sibling: "Your sibling",
+};
+
+function relationshipSubtitle(relationship: string | null | undefined, careTypeLabel: string): string {
+  const label = relationship ? RELATIONSHIP_LABELS[relationship] : undefined;
+  return label ? `${label} · ${careTypeLabel}` : careTypeLabel;
+}
 
 // Source: PRD section 6.3 (Overview)
 
@@ -70,10 +93,12 @@ export default async function FamilyOverviewPage() {
 
   const { data: client } = await supabase
     .from("clients")
-    .select("id, first_name, last_name, care_type, allergies, dietary_requirements, dnacpr, risk_level, assigned_carer_id")
+    .select("id, first_name, last_name, care_type, allergies, dietary_requirements, dnacpr, risk_level, assigned_carer_id, nok_messaging_enabled")
     .eq("id", clientId)
     .single();
   if (!client) return <UnlinkedAccountNotice />;
+
+  const { data: org } = await supabase.from("organisations").select("phone, email").eq("id", familyUser!.org_id).maybeSingle();
 
   const todayStart = startOfTodayUTC();
   const todayEnd = new Date(todayStart);
@@ -122,17 +147,15 @@ export default async function FamilyOverviewPage() {
     <div>
       <Header
         title={`${client.first_name} ${client.last_name}`}
-        subtitle={`Your ${nokLink?.relationship?.toLowerCase() ?? "family member"} · ${CARE_TYPE_LABELS[client.care_type] ?? client.care_type}`}
+        subtitle={relationshipSubtitle(nokLink?.relationship, CARE_TYPE_LABELS[client.care_type] ?? client.care_type)}
         right={
           <>
-            <button type="button" aria-label="Notifications">
-              <i className="ti ti-bell text-[22px] text-white/80" aria-hidden="true" />
-            </button>
+            <NotificationBell userId={authUser!.id} align="right" />
             <ClientAvatar firstName={client.first_name} lastName={client.last_name} size="md" />
           </>
         }
       >
-        <CriticalBadges client={client as CriticalBadgesClient} />
+        <CriticalBadges client={client as CriticalBadgesClient} linkHref="/family/care-plan" />
       </Header>
 
       <div className="px-4 py-4">
@@ -192,13 +215,35 @@ export default async function FamilyOverviewPage() {
           </div>
         ) : null}
 
-        <Link
-          href="/family/messages"
-          className="mt-3.5 flex w-full items-center justify-center gap-1.5 rounded-btn bg-nhs-blue py-[10px] text-[14px] font-medium text-white"
-        >
-          <i className="ti ti-message text-[16px]" aria-hidden="true" />
-          Message the care team
-        </Link>
+        {client.nok_messaging_enabled ? (
+          <Link
+            href="/family/messages"
+            className="mt-3.5 flex w-full items-center justify-center gap-1.5 rounded-btn bg-nhs-blue py-[10px] text-[14px] font-medium text-white"
+          >
+            <i className="ti ti-message text-[16px]" aria-hidden="true" />
+            Message the care team
+          </Link>
+        ) : null}
+
+        {org?.phone ? (
+          <a
+            href={`tel:${org.phone}`}
+            className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-btn border border-border-default bg-card-bg py-[10px] text-[14px] font-medium text-text-primary"
+          >
+            <i className="ti ti-phone text-[16px]" aria-hidden="true" />
+            Call the care team
+          </a>
+        ) : null}
+
+        {org?.email ? (
+          <a
+            href={`mailto:${org.email}?subject=${encodeURIComponent(`Enquiry regarding ${client.first_name}'s care`)}`}
+            className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-btn border border-border-default bg-card-bg py-[10px] text-[14px] font-medium text-text-primary"
+          >
+            <i className="ti ti-mail text-[16px]" aria-hidden="true" />
+            Email the care team
+          </a>
+        ) : null}
 
         <SignOutButton className="mt-3 w-full rounded-btn border border-border-default bg-card-bg py-[10px] text-[13px] font-medium text-danger-red" />
       </div>

@@ -35,7 +35,7 @@ function timeAgo(iso: string): string {
   return `${days}d ago`;
 }
 
-export function NotificationBell({ userId }: { userId: string }) {
+export function NotificationBell({ userId, align = "left" }: { userId: string; align?: "left" | "right" }) {
   const router = useRouter();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [open, setOpen] = useState(false);
@@ -112,7 +112,12 @@ export function NotificationBell({ userId }: { userId: string }) {
       </button>
 
       {open ? (
-        <div className="absolute left-0 top-full z-50 mt-2 max-h-[420px] w-[340px] overflow-y-auto rounded-card border border-border-default bg-card-bg shadow-modal">
+        <div
+          className={[
+            "absolute top-full z-50 mt-2 max-h-[420px] w-[340px] overflow-y-auto rounded-card border border-border-default bg-card-bg shadow-modal",
+            align === "right" ? "right-0" : "left-0",
+          ].join(" ")}
+        >
           <div className="flex items-center justify-between border-b border-border-default px-3.5 py-2.5">
             <p className="text-body font-medium text-text-primary">Notifications</p>
             {unreadCount > 0 ? (

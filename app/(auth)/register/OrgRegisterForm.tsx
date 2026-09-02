@@ -8,6 +8,21 @@ import { suggestOrgCode, isValidOrgCode } from "@/lib/utils/orgCode";
 import { AuthLogo } from "../_components/AuthLogo";
 import { StepIndicator } from "./StepIndicator";
 
+// Real gap found: handleCreateAccount had no error handling anywhere —
+// if any fetch()/json() call threw for any reason (a transient network
+// blip, a Netlify cold-start returning a non-JSON error page, etc.), the
+// whole async function rejected uncaught and setSubmitting(false) never
+// ran, leaving "Creating account…" stuck forever with no explanation.
+// Same class of problem RotaGrid.tsx's saveShift() already solved with
+// this exact withTimeout() pattern — applied here for the same reason.
+const SUBMIT_TIMEOUT_MS = 15_000;
+function withTimeout<T>(promise: PromiseLike<T>): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error("Request timed out. Please try again.")), SUBMIT_TIMEOUT_MS)),
+  ]);
+}
+
 const CARE_TYPE_OPTIONS = [
   { value: "domiciliary", label: "Domiciliary" },
   { value: "residential", label: "Residential" },
@@ -124,65 +139,73 @@ export function OrgRegisterForm() {
 
     setSubmitting(true);
 
-    const orgResponse = await fetch("/api/register/organisation", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: orgName,
-        orgCode,
-        cqcNumber,
-        email: contactEmail,
-        phone,
-        address,
-        careTypes,
-        termsAccepted,
-      }),
-    });
+    try {
+      const orgResponse = await withTimeout(
+        fetch("/api/register/organisation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: orgName,
+            orgCode,
+            cqcNumber,
+            email: contactEmail,
+            phone,
+            address,
+            careTypes,
+            termsAccepted,
+          }),
+        }),
+      );
 
-    const orgResult: { orgId?: string; error?: string } = await orgResponse.json();
+      const orgResult: { orgId?: string; error?: string } =
+        (await orgResponse.json().catch(() => null)) ?? {};
 
-    if (!orgResponse.ok || !orgResult.orgId) {
-      setStepError(orgResult.error ?? "Something went wrong. Please try again.");
+      if (!orgResponse.ok || !orgResult.orgId) {
+        setStepError(orgResult.error ?? "Something went wrong. Please try again.");
+        return;
+      }
+
+      const accountResponse = await withTimeout(
+        fetch("/api/register/manager-account", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orgId: orgResult.orgId,
+            firstName,
+            lastName,
+            email: workEmail,
+            password,
+          }),
+        }),
+      );
+
+      const accountResult: { success?: boolean; error?: string } =
+        (await accountResponse.json().catch(() => null)) ?? {};
+
+      if (!accountResponse.ok || !accountResult.success) {
+        setStepError(accountResult.error ?? "Something went wrong creating your account. Please try again.");
+        return;
+      }
+
+      // Account was created (and confirmed) server-side — sign in with the
+      // password just set to establish a real browser session.
+      const supabase = createClient();
+      const { error: signInError } = await withTimeout(
+        supabase.auth.signInWithPassword({ email: workEmail, password }),
+      );
+
+      if (signInError) {
+        setStepError("Account created, but sign-in failed. Please sign in from the login page.");
+        return;
+      }
+
+      // Auth route + authenticated session -> middleware redirects to /dashboard.
+      router.refresh();
+    } catch (err) {
+      setStepError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    const accountResponse = await fetch("/api/register/manager-account", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        orgId: orgResult.orgId,
-        firstName,
-        lastName,
-        email: workEmail,
-        password,
-      }),
-    });
-
-    const accountResult: { success?: boolean; error?: string } = await accountResponse.json();
-
-    if (!accountResponse.ok || !accountResult.success) {
-      setStepError(accountResult.error ?? "Something went wrong creating your account. Please try again.");
-      setSubmitting(false);
-      return;
-    }
-
-    // Account was created (and confirmed) server-side — sign in with the
-    // password just set to establish a real browser session.
-    const supabase = createClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: workEmail,
-      password,
-    });
-
-    if (signInError) {
-      setStepError("Account created, but sign-in failed. Please sign in from the login page.");
-      setSubmitting(false);
-      return;
-    }
-
-    // Auth route + authenticated session -> middleware redirects to /dashboard.
-    router.refresh();
   }
 
   return (
@@ -276,7 +299,11 @@ export function OrgRegisterForm() {
           </div>
 
           <div className="border-t border-border-default pt-4">
-            <div className="grid grid-cols-2 gap-3">
+            <p className="text-body font-medium text-text-primary">Your manager account</p>
+            <p className="mt-0.5 text-secondary text-text-secondary">
+              This person will be the administrator for this organisation on Autopilot.
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-3">
               <Field label="First name" required>
                 <TextInput value={firstName} onChange={setFirstName} />
               </Field>
@@ -343,6 +370,13 @@ export function OrgRegisterForm() {
           </p>
         </form>
       )}
+
+      <p className="mt-4 text-center text-secondary">
+        <Link href="/login" className="inline-flex items-center gap-1 text-nhs-blue">
+          <i className="ti ti-arrow-left text-[14px]" aria-hidden="true" />
+          Back to sign in
+        </Link>
+      </p>
     </div>
   );
 }

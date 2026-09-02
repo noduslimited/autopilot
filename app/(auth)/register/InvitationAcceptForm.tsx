@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AuthLogo } from "../_components/AuthLogo";
@@ -144,6 +145,12 @@ export function InvitationAcceptForm({ token }: { token: string }) {
         <p className="mt-6 text-body text-text-primary">
           This invitation has expired. Please ask your manager to resend it.
         </p>
+        <p className="mt-4 text-secondary">
+          <Link href="/login" className="inline-flex items-center gap-1 text-nhs-blue">
+            <i className="ti ti-arrow-left text-[14px]" aria-hidden="true" />
+            Back to sign in
+          </Link>
+        </p>
       </div>
     );
   }
@@ -223,6 +230,13 @@ export function InvitationAcceptForm({ token }: { token: string }) {
           {submitting ? "Creating account…" : "Create account and join"}
         </button>
       </form>
+
+      <p className="mt-4 text-center text-secondary">
+        <Link href="/login" className="inline-flex items-center gap-1 text-nhs-blue">
+          <i className="ti ti-arrow-left text-[14px]" aria-hidden="true" />
+          Back to sign in
+        </Link>
+      </p>
     </div>
   );
 }

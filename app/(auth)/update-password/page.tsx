@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AuthLogo } from "../_components/AuthLogo";
@@ -104,6 +105,12 @@ function UpdatePasswordForm() {
         <p className="mt-6 text-body text-text-primary">
           This reset link is invalid or has expired. Please request a new one.
         </p>
+        <p className="mt-4 text-secondary">
+          <Link href="/login" className="inline-flex items-center gap-1 text-nhs-blue">
+            <i className="ti ti-arrow-left text-[14px]" aria-hidden="true" />
+            Back to sign in
+          </Link>
+        </p>
       </div>
     );
   }
@@ -155,6 +162,13 @@ function UpdatePasswordForm() {
           {loading ? "Updating…" : "Update password"}
         </button>
       </form>
+
+      <p className="mt-4 text-center text-secondary">
+        <Link href="/login" className="inline-flex items-center gap-1 text-nhs-blue">
+          <i className="ti ti-arrow-left text-[14px]" aria-hidden="true" />
+          Back to sign in
+        </Link>
+      </p>
     </div>
   );
 }

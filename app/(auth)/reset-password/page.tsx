@@ -76,7 +76,8 @@ export default function ResetPasswordPage() {
       )}
 
       <p className="mt-4 text-center text-secondary">
-        <Link href="/login" className="text-nhs-blue">
+        <Link href="/login" className="inline-flex items-center gap-1 text-nhs-blue">
+          <i className="ti ti-arrow-left text-[14px]" aria-hidden="true" />
           Back to sign in
         </Link>
       </p>

@@ -68,7 +68,7 @@ export default async function ClientProfilePage({
   const { data: client } = await supabase
     .from("clients")
     .select(
-      "id, client_ref, org_id, first_name, last_name, date_of_birth, nhs_number, address, care_type, assigned_carer_id, risk_level, allergies, dietary_requirements, dnacpr, biography, nok_name, nok_relationship, nok_email, nok_phone, gp_name, gp_practice, gp_phone, visit_frequency, visit_duration_minutes, status, users:assigned_carer_id(first_name, last_name)",
+      "id, client_ref, org_id, first_name, last_name, date_of_birth, nhs_number, address, care_type, assigned_carer_id, risk_level, allergies, dietary_requirements, dnacpr, biography, nok_name, nok_relationship, nok_email, nok_phone, gp_name, gp_practice, gp_phone, visit_frequency, visit_duration_minutes, status, nok_messaging_enabled, users:assigned_carer_id(first_name, last_name)",
     )
     .eq("id", clientId)
     .single();

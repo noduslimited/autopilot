@@ -14,6 +14,22 @@ export default async function FamilyMessagesPage() {
   const clientId = await getLinkedClientId(supabase, authUser!.id);
   if (!clientId) return <UnlinkedAccountNotice />;
 
+  // Defense in depth beyond hiding the nav entry point (BottomNav) and
+  // the Overview "Message the care team" button — a direct visit to this
+  // URL while messaging is disabled for the client should still be
+  // blocked, not just unreachable via the normal UI.
+  const { data: messagingClient } = await supabase.from("clients").select("nok_messaging_enabled").eq("id", clientId).maybeSingle();
+  if (messagingClient && !messagingClient.nok_messaging_enabled) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+        <i className="ti ti-message-off text-[32px] text-text-secondary" aria-hidden="true" />
+        <p className="mt-3 text-body text-text-secondary">
+          Messaging isn&apos;t available for this account. Please contact the care team directly.
+        </p>
+      </div>
+    );
+  }
+
   const [{ data: messages }, { data: org }, { data: lastManagerMessage }] = await Promise.all([
     supabase.from("messages").select("id, sender_id, sender_role, sender_name, body, created_at").eq("client_id", clientId).order("created_at", { ascending: true }),
     supabase.from("organisations").select("name").eq("id", familyUser!.org_id).single(),
