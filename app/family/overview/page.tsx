@@ -227,7 +227,7 @@ export default async function FamilyOverviewPage() {
 
         {org?.phone ? (
           <a
-            href={`tel:${org.phone}`}
+            href={`tel:${org.phone.replace(/[^0-9+]/g, "")}`}
             className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-btn border border-border-default bg-card-bg py-[10px] text-[14px] font-medium text-text-primary"
           >
             <i className="ti ti-phone text-[16px]" aria-hidden="true" />
