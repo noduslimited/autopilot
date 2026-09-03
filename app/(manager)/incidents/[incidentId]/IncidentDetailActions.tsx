@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Input";
 import { ConfirmDialog } from "@/components/ui/Modal";
+import { generateIncidentPdf } from "@/lib/pdf/generateIncidentPdf";
 
 export function IncidentDetailActions({
   incidentId,
@@ -15,6 +16,7 @@ export function IncidentDetailActions({
   autoOpenSignOff = false,
   signedOffAt,
   signedOffByName,
+  pdfData,
 }: {
   incidentId: string;
   incidentRef: string;
@@ -23,6 +25,16 @@ export function IncidentDetailActions({
   autoOpenSignOff?: boolean;
   signedOffAt?: string | null;
   signedOffByName?: string | null;
+  pdfData: {
+    clientName: string;
+    incidentType: string;
+    severity: string;
+    createdAt: string;
+    reporterName: string;
+    description: string;
+    gpContacted: boolean;
+    gpNotes: string | null;
+  };
 }) {
   const router = useRouter();
   const [notes, setNotes] = useState(managerNotes ?? "");
@@ -76,7 +88,19 @@ export function IncidentDetailActions({
       </div>
 
       <div className="mt-4 flex flex-wrap justify-between gap-2">
-        <Button variant="secondary" onClick={() => window.print()}>
+        <Button
+          variant="secondary"
+          onClick={() =>
+            generateIncidentPdf({
+              incidentRef,
+              status: status === "open" ? "Open" : "Closed",
+              managerNotes,
+              signedOffByName: signedOffByName ?? null,
+              signedOffAt: signedOffAt ?? null,
+              ...pdfData,
+            })
+          }
+        >
           Download report
         </Button>
         {status === "open" ? (

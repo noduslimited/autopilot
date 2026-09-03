@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { BarChart, type BarChartDataPoint } from "@/components/charts/BarChart";
+import { generateReportPdf } from "@/lib/pdf/generateReportPdf";
 
 export interface SavedReportItem {
   id: string;
@@ -17,21 +18,6 @@ export interface SavedReportItem {
 }
 
 const PROMPT_CHIPS = ["Monthly CQC summary", "All incidents this month", "Staff compliance overview"];
-
-// "Download PDF" is implemented via the browser's own print dialog (PRD
-// section 4.8: "Download renders PDF via browser print API") rather than
-// a server-side PDF library — a new window with just the report content
-// keeps the printout clean instead of printing the whole Reports page.
-function printReportAsPdf(title: string, content: string) {
-  const win = window.open("", "_blank");
-  if (!win) return;
-  win.document.write(
-    `<html><head><title>${title}</title></head><body style="font-family:sans-serif;white-space:pre-line;padding:24px;">${content.replace(/</g, "&lt;")}</body></html>`,
-  );
-  win.document.close();
-  win.focus();
-  win.print();
-}
 
 export function ReportsClient({
   savedReports,
@@ -124,7 +110,7 @@ export function ReportsClient({
   }
 
   function handlePrint() {
-    printReportAsPdf(prompt.trim().slice(0, 80) || "Autopilot report", reportText);
+    generateReportPdf(prompt.trim().slice(0, 80) || "Autopilot report", reportText);
   }
 
   return (
@@ -261,7 +247,7 @@ function SavedReportDownloadButton({ report }: { report: SavedReportItem }) {
   return (
     <button
       type="button"
-      onClick={() => printReportAsPdf(report.name, report.content)}
+      onClick={() => generateReportPdf(report.name, report.content)}
       className="rounded-btn border border-border-default bg-card-bg px-3 py-[6px] text-[12px] font-medium text-text-primary"
     >
       PDF

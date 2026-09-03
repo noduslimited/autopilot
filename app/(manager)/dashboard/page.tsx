@@ -5,6 +5,7 @@ import { VisitStatusPanel } from "./VisitStatusPanel";
 import { AiSummarySection } from "./AiSummarySection";
 import { AlertBanner } from "./AlertBanner";
 import { ComplianceSnapshot } from "./ComplianceSnapshot";
+import { AnalyticsSection, type StaffAnalyticsRow } from "./AnalyticsSection";
 
 // Source: PRD section 4.2 (Dashboard)
 
@@ -16,6 +17,13 @@ function startOfTodayUTC(): Date {
 function startOfMonthUTC(): Date {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+}
+
+function startOfWeekUTC(): Date {
+  const now = new Date();
+  const day = now.getUTCDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
 }
 
 function greeting(): string {
@@ -42,6 +50,7 @@ export default async function DashboardPage() {
   const todayEnd = new Date(todayStart);
   todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
   const monthStart = startOfMonthUTC();
+  const weekStart = startOfWeekUTC();
 
   const nowIso = new Date().toISOString();
   const in30MinIso = new Date(Date.now() + 30 * 60 * 1000).toISOString();
@@ -100,6 +109,62 @@ export default async function DashboardPage() {
       .gte("scheduled_start", nowIso)
       .lte("scheduled_start", in30MinIso),
   ]);
+
+  // Analytics section (Gokul, direct request 2026-09-03) — separate
+  // Promise.all so the (already large) primary dashboard query array
+  // above stays readable. All figures computed live from the same
+  // tables the rest of the dashboard already reads from — nothing new
+  // introduced beyond named-selection scoping to "this week"/"this month".
+  const [{ data: allStaff }, { data: allClients }, { data: weekVisits }, { data: monthIncidents }] = await Promise.all([
+    supabase.from("staff").select("id, users:id(first_name, last_name)").eq("org_id", orgId),
+    supabase.from("clients").select("id, assigned_carer_id").eq("org_id", orgId).eq("status", "active"),
+    supabase
+      .from("visits")
+      .select("assigned_carer_id, scheduled_start, check_in_time, check_out_time, status, wellbeing_rating")
+      .eq("org_id", orgId)
+      .gte("scheduled_start", weekStart.toISOString()),
+    supabase.from("incidents").select("client_id").eq("org_id", orgId).gte("created_at", monthStart.toISOString()),
+  ]);
+
+  const weekVisitsList = weekVisits ?? [];
+  const clientsForAnalytics = allClients ?? [];
+
+  const staffAnalytics: StaffAnalyticsRow[] = (allStaff ?? []).map((s) => {
+    const person = Array.isArray(s.users) ? s.users[0] : s.users;
+    const staffVisitsThisWeek = weekVisitsList.filter((v) => v.assigned_carer_id === s.id);
+    const completedThisWeek = staffVisitsThisWeek.filter((v) => v.status === "completed").length;
+    const activeClientCount = clientsForAnalytics.filter((c) => c.assigned_carer_id === s.id).length;
+
+    const latenessSamples = staffVisitsThisWeek
+      .filter((v) => v.check_in_time)
+      .map((v) => Math.max(0, (new Date(v.check_in_time!).getTime() - new Date(v.scheduled_start).getTime()) / 60000));
+    const avgLatenessMin =
+      latenessSamples.length > 0 ? Math.round(latenessSamples.reduce((sum, m) => sum + m, 0) / latenessSamples.length) : null;
+
+    return {
+      staffId: s.id,
+      name: person ? `${person.first_name} ${person.last_name}` : "Unknown",
+      avgLatenessMin,
+      activeClientCount,
+      completedVisitsThisWeek: completedThisWeek,
+    };
+  });
+
+  const durationSamples = weekVisitsList
+    .filter((v) => v.status === "completed" && v.check_in_time && v.check_out_time)
+    .map((v) => (new Date(v.check_out_time!).getTime() - new Date(v.check_in_time!).getTime()) / 60000);
+  const avgVisitMinutes = durationSamples.length > 0 ? Math.round(durationSamples.reduce((sum, m) => sum + m, 0) / durationSamples.length) : null;
+
+  const WELLBEING_SCORE: Record<string, number> = { good: 3, fair: 2, poor: 1 };
+  const wellbeingSamples = weekVisitsList
+    .filter((v) => v.wellbeing_rating)
+    .map((v) => WELLBEING_SCORE[v.wellbeing_rating!] ?? 2);
+  const avgWellbeingScore = wellbeingSamples.length > 0 ? wellbeingSamples.reduce((sum, s) => sum + s, 0) / wellbeingSamples.length : null;
+  const avgWellbeingLabel =
+    avgWellbeingScore === null ? null : avgWellbeingScore >= 2.5 ? "Good" : avgWellbeingScore >= 1.5 ? "Fair" : "Poor";
+
+  const avgIncidentsPerClientPerMonth =
+    clientsForAnalytics.length > 0 ? Math.round(((monthIncidents ?? []).length / clientsForAnalytics.length) * 100) / 100 : 0;
 
   const visits = todayVisits ?? [];
   const completedCount = visits.filter((v) => v.status === "completed").length;
@@ -223,6 +288,16 @@ export default async function DashboardPage() {
             medsCorrectPct={medsCorrectPct}
           />
         </div>
+      </div>
+
+      <div className="mt-5">
+        <AnalyticsSection
+          staffRows={staffAnalytics}
+          avgVisitMinutes={avgVisitMinutes}
+          avgWellbeingLabel={avgWellbeingLabel}
+          avgWellbeingScore={avgWellbeingScore}
+          avgIncidentsPerClientPerMonth={avgIncidentsPerClientPerMonth}
+        />
       </div>
     </div>
   );

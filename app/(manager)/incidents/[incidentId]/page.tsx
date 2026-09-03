@@ -190,6 +190,16 @@ export default async function IncidentDetailPage({
         autoOpenSignOff={signoff === "1"}
         signedOffAt={incident.signed_off_at}
         signedOffByName={signer ? `${signer.first_name} ${signer.last_name}` : null}
+        pdfData={{
+          clientName: client ? `${client.first_name} ${client.last_name}` : "Unknown client",
+          incidentType: TYPE_LABELS[incident.incident_type] ?? incident.incident_type,
+          severity: severity.label,
+          createdAt: incident.created_at,
+          reporterName: reporter ? `${reporter.first_name} ${reporter.last_name}` : "Unknown",
+          description: incident.description,
+          gpContacted: incident.gp_contacted,
+          gpNotes: incident.gp_notes,
+        }}
       />
 
       <div className="mt-4 rounded-card border border-border-default bg-card-bg py-3.5 px-4">
