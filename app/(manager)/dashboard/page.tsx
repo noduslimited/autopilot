@@ -116,7 +116,7 @@ export default async function DashboardPage() {
   // tables the rest of the dashboard already reads from — nothing new
   // introduced beyond named-selection scoping to "this week"/"this month".
   const [{ data: allStaff }, { data: allClients }, { data: weekVisits }, { data: monthIncidents }] = await Promise.all([
-    supabase.from("staff").select("id, users:id(first_name, last_name)").eq("org_id", orgId),
+    supabase.from("staff").select("id, users(first_name, last_name)").eq("org_id", orgId),
     supabase.from("clients").select("id, assigned_carer_id").eq("org_id", orgId).eq("status", "active"),
     supabase
       .from("visits")
