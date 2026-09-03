@@ -37,10 +37,10 @@ export default async function ClientsPage() {
     supabase
       .from("clients")
       .select(
-        "id, first_name, last_name, date_of_birth, nhs_number, address, care_type, assigned_carer_id, risk_level, allergies, dietary_requirements, dnacpr, users:assigned_carer_id(first_name, last_name), care_plans(last_reviewed_at)",
+        "id, first_name, last_name, date_of_birth, nhs_number, address, care_type, assigned_carer_id, risk_level, allergies, dietary_requirements, dnacpr, status, users:assigned_carer_id(first_name, last_name), care_plans(last_reviewed_at)",
       )
       .eq("org_id", orgId)
-      .eq("status", "active")
+      .in("status", ["active", "draft"])
       .order("first_name", { ascending: true }),
     supabase
       .from("visits")
@@ -93,6 +93,7 @@ export default async function ClientsPage() {
       dnacpr: client.dnacpr,
       statusLabel,
       nextVisitTime: nextVisit?.scheduled_start ?? null,
+      recordStatus: client.status as "active" | "draft",
     };
   });
 

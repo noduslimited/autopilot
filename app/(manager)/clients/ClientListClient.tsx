@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ClientAvatar } from "@/components/clients/ClientAvatar";
 import { CriticalBadges } from "@/components/clients/CriticalBadges";
+import { Badge } from "@/components/ui/Badge";
 
 export interface ClientListItem {
   id: string;
@@ -21,6 +22,7 @@ export interface ClientListItem {
   dnacpr: boolean;
   statusLabel: "Care plan current" | "Action needed" | "Review due" | "Visit in progress";
   nextVisitTime: string | null;
+  recordStatus: "active" | "draft";
 }
 
 const CARE_TYPE_LABELS: Record<string, string> = {
@@ -39,6 +41,12 @@ export function ClientListClient({ clients }: { clients: ClientListItem[] }) {
   const [search, setSearch] = useState("");
   const [careTypeFilter, setCareTypeFilter] = useState("all");
   const [riskFilter, setRiskFilter] = useState("all");
+  // Real gap found: "Save as draft" (AddClientForm) has always created a
+  // real clients row with status 'draft', but the list query only ever
+  // fetched status='active' — there was no way to find a saved draft
+  // again afterward. Defaults to "active" so existing behaviour (drafts
+  // invisible unless asked for) doesn't change for anyone not using this.
+  const [statusFilter, setStatusFilter] = useState<"active" | "draft" | "all">("active");
   const [showAll, setShowAll] = useState(false);
 
   const filtered = useMemo(() => {
@@ -54,8 +62,9 @@ export function ClientListClient({ clients }: { clients: ClientListItem[] }) {
 
       const matchesCareType = careTypeFilter === "all" || client.careType === careTypeFilter;
       const matchesRisk = riskFilter === "all" || client.riskLevel === riskFilter;
+      const matchesStatus = statusFilter === "all" || client.recordStatus === statusFilter;
 
-      return matchesSearch && matchesCareType && matchesRisk;
+      return matchesSearch && matchesCareType && matchesRisk && matchesStatus;
     });
 
     // NO CARER clients sorted to top (PRD section 4.3).
@@ -66,17 +75,22 @@ export function ClientListClient({ clients }: { clients: ClientListItem[] }) {
     });
 
     return result;
-  }, [clients, search, careTypeFilter, riskFilter]);
+  }, [clients, search, careTypeFilter, riskFilter, statusFilter]);
 
   const visible = showAll ? filtered : filtered.slice(0, DEFAULT_VISIBLE);
-  const hasFilters = search.trim() !== "" || careTypeFilter !== "all" || riskFilter !== "all";
+  const hasFilters = search.trim() !== "" || careTypeFilter !== "all" || riskFilter !== "all" || statusFilter !== "active";
 
   return (
     <div className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-page-heading text-text-primary">Clients</h1>
-          <p className="mt-1 text-secondary text-text-secondary">{clients.length} active service users</p>
+          <p className="mt-1 text-secondary text-text-secondary">
+            {clients.filter((c) => c.recordStatus === "active").length} active service users
+            {clients.some((c) => c.recordStatus === "draft")
+              ? ` · ${clients.filter((c) => c.recordStatus === "draft").length} draft${clients.filter((c) => c.recordStatus === "draft").length === 1 ? "" : "s"}`
+              : ""}
+          </p>
         </div>
         <Link href="/clients/new" className="rounded-btn bg-nhs-blue px-3.5 py-[7px] text-[12px] font-medium text-white">
           Add client
@@ -114,6 +128,15 @@ export function ClientListClient({ clients }: { clients: ClientListItem[] }) {
           <option value="medium">Medium</option>
           <option value="low">Low</option>
         </select>
+        <select
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value as "active" | "draft" | "all")}
+          className="rounded-input border border-border-default bg-card-bg px-3 py-[9px] text-body text-text-primary outline-none"
+        >
+          <option value="active">Active clients</option>
+          <option value="draft">Drafts</option>
+          <option value="all">All statuses</option>
+        </select>
       </div>
 
       {clients.length === 0 ? (
@@ -149,6 +172,7 @@ export function ClientListClient({ clients }: { clients: ClientListItem[] }) {
                       <Link href={`/clients/${client.id}`} className="text-body font-medium text-text-primary hover:underline">
                         {client.firstName} {client.lastName}
                       </Link>
+                      {client.recordStatus === "draft" ? <Badge variant="draft">DRAFT</Badge> : null}
                       <CriticalBadges
                         client={{
                           allergies: client.allergies,

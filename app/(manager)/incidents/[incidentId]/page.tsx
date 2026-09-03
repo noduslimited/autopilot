@@ -95,8 +95,9 @@ export default async function IncidentDetailPage({
 
   return (
     <div className="p-5">
-      <Link href="/incidents" className="text-secondary text-nhs-blue">
-        ← Back to incidents
+      <Link href="/incidents" className="inline-flex items-center gap-1 text-secondary text-nhs-blue">
+        <i className="ti ti-arrow-left text-[14px]" aria-hidden="true" />
+        Back to incidents
       </Link>
 
       <div
@@ -187,6 +188,8 @@ export default async function IncidentDetailPage({
         status={incident.status as "open" | "closed"}
         managerNotes={incident.manager_notes}
         autoOpenSignOff={signoff === "1"}
+        signedOffAt={incident.signed_off_at}
+        signedOffByName={signer ? `${signer.first_name} ${signer.last_name}` : null}
       />
 
       <div className="mt-4 rounded-card border border-border-default bg-card-bg py-3.5 px-4">
@@ -208,14 +211,6 @@ export default async function IncidentDetailPage({
         </div>
       </div>
 
-      {incident.status === "closed" && signer ? (
-        <p className="mt-3 text-secondary text-text-secondary">
-          Signed off by {signer.first_name} {signer.last_name}
-          {incident.signed_off_at
-            ? ` on ${new Date(incident.signed_off_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
-            : ""}
-        </p>
-      ) : null}
     </div>
   );
 }

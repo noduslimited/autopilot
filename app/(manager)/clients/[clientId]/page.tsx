@@ -88,8 +88,9 @@ export default async function ClientProfilePage({
 
   return (
     <div className="p-5">
-      <Link href="/clients" className="text-secondary text-nhs-blue">
-        ← Back to clients
+      <Link href="/clients" className="inline-flex items-center gap-1 text-secondary text-nhs-blue">
+        <i className="ti ti-arrow-left text-[14px]" aria-hidden="true" />
+        Back to clients
       </Link>
 
       {created ? (

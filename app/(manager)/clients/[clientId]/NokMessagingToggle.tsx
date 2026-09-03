@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { Toggle } from "@/components/ui/Toggle";
 
 // Source: Gokul, direct request 2026-09-02. Same immediate-save toggle
 // pattern already established in Settings → Notifications
@@ -33,24 +34,7 @@ export function NokMessagingToggle({ clientId, initialEnabled }: { clientId: str
           When off, the family portal&apos;s Messages tab and message button are hidden for this client.
         </p>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={enabled}
-        onClick={handleToggle}
-        disabled={saving}
-        className={[
-          "relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60",
-          enabled ? "bg-nhs-blue" : "bg-border-default",
-        ].join(" ")}
-      >
-        <span
-          className={[
-            "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform",
-            enabled ? "translate-x-[22px]" : "translate-x-0.5",
-          ].join(" ")}
-        />
-      </button>
+      <Toggle checked={enabled} onChange={handleToggle} disabled={saving} />
     </div>
   );
 }

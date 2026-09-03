@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { Modal } from "@/components/ui/Modal";
 import { SignOutButton } from "@/components/auth/SignOutButton";
+import { BackButton } from "./BackButton";
 
 // Manager portal responsive shell. Source: Design System Document section
 // 10.1 — desktop (>=1024px) sidebar always visible; tablet (768-1023px)
@@ -46,15 +47,6 @@ export function ManagerShell({ children }: { children: ReactNode }) {
         <Sidebar />
       </div>
 
-      {/* Tablet: hamburger-triggered overlay sidebar */}
-      <button
-        type="button"
-        onClick={() => setTabletSidebarOpen(true)}
-        className="fixed top-4 left-4 z-30 hidden rounded-btn border border-border-default bg-card-bg p-2 md:block lg:hidden print:hidden"
-        aria-label="Open navigation"
-      >
-        <i className="ti ti-menu-2 text-[20px] text-text-primary" aria-hidden="true" />
-      </button>
       {tabletSidebarOpen ? (
         <div className="fixed inset-0 z-40 flex md:flex lg:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setTabletSidebarOpen(false)} />
@@ -64,7 +56,35 @@ export function ManagerShell({ children }: { children: ReactNode }) {
         </div>
       ) : null}
 
-      <main className="min-w-0 flex-1 pb-16 md:pb-0">{children}</main>
+      <div className="min-w-0 flex-1">
+        {/* Real gap found: below the desktop breakpoint the sidebar (the
+            only place branding lives) is either hidden behind the tablet
+            hamburger or replaced by the mobile bottom nav — every manager
+            page rendered straight into its own heading with no Autopilot
+            branding or back button visible at all. One shared bar here,
+            not touched per-page, covers every manager route uniformly. */}
+        <header className="flex items-center gap-3 bg-nhs-dark-blue px-4 py-3 text-white lg:hidden print:hidden">
+          {pathname !== "/dashboard" ? (
+            <BackButton className="text-white/80" />
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setTabletSidebarOpen(true)}
+            aria-label="Open navigation"
+            className="inline-flex items-center text-white/80"
+          >
+            <i className="ti ti-menu-2 text-[20px]" aria-hidden="true" />
+          </button>
+          <div>
+            <div className="text-[16px] font-medium leading-tight text-white">Autopilot</div>
+            <div className="text-[9px] font-normal uppercase tracking-[2px] text-nhs-light-blue">
+              Nodus Limited
+            </div>
+          </div>
+        </header>
+
+        <main className="pb-16 md:pb-0">{children}</main>
+      </div>
 
       {/* Mobile: bottom nav with overflow "more" sheet */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 flex justify-around border-t border-border-default bg-surface-secondary px-4 pt-2.5 pb-3.5 md:hidden print:hidden">

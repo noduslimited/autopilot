@@ -19,9 +19,17 @@ export function Header({ title, subtitle, backHref, right, children }: HeaderPro
       <div className="flex items-start justify-between">
         <div className="min-w-0">
           {backHref ? (
-            <Link href={backHref} className="mb-2 inline-flex text-white/80" aria-label="Back">
-              <i className="ti ti-arrow-left text-[20px]" aria-hidden="true" />
-            </Link>
+            <div className="mb-2 flex items-center gap-2.5">
+              <Link href={backHref} className="inline-flex text-white/80" aria-label="Back">
+                <i className="ti ti-arrow-left text-[20px]" aria-hidden="true" />
+              </Link>
+              <div>
+                <div className="text-[13px] font-medium leading-tight text-white">Autopilot</div>
+                <div className="text-[8px] font-normal uppercase tracking-[1.5px] text-nhs-light-blue">
+                  Nodus Limited
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="mb-1">
               <div className="text-[18px] font-medium text-white">Autopilot</div>

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { Toggle } from "@/components/ui/Toggle";
 
 const TOGGLES: { key: string; label: string }[] = [
   { key: "unassigned_visit_alerts", label: "Unassigned visit alerts" },
@@ -10,6 +11,53 @@ const TOGGLES: { key: string; label: string }[] = [
   { key: "dbs_expiry_alerts", label: "DBS expiry alerts" },
   { key: "invoice_overdue", label: "Invoice overdue" },
 ];
+
+// Real gap found: no visible way for a manager to see whether browser
+// push notifications are actually enabled for this site, or an easy path
+// to turn them on if not. Purely informational for the standard
+// Notification permission state — this page doesn't itself send push
+// notifications (that's the carer shift-notification flow, CLAUDE.md
+// section 16a); this banner is about the underlying browser permission
+// generally being on, since a manager with it denied/default would also
+// miss any future browser-level prompts.
+function NotificationPermissionBanner() {
+  const [permission, setPermission] = useState<NotificationPermission | "unsupported" | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setPermission("unsupported");
+      return;
+    }
+    setPermission(Notification.permission);
+  }, []);
+
+  async function handleEnable() {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    const result = await Notification.requestPermission();
+    setPermission(result);
+  }
+
+  if (permission === null || permission === "unsupported" || permission === "granted") return null;
+
+  return (
+    <div className="mb-4 flex items-center justify-between gap-3 rounded-input border border-amber-text/20 bg-amber-light px-4 py-2.5">
+      <p className="text-body text-amber-text">
+        {permission === "denied"
+          ? "Browser notifications are blocked for this site. Enable them in your browser's site settings to receive alerts."
+          : "Browser notifications aren't enabled yet — turn them on to receive alerts as they happen."}
+      </p>
+      {permission === "default" ? (
+        <button
+          type="button"
+          onClick={handleEnable}
+          className="shrink-0 rounded-btn bg-nhs-blue px-3.5 py-[7px] text-[12px] font-medium text-white"
+        >
+          Enable notifications
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 // Toggles save immediately on change (no separate "Save" step) — matches
 // the mockup's plain on/off switches with no adjacent save button for
@@ -36,28 +84,15 @@ export function NotificationsForm({ orgId, initialSettings }: { orgId: string; i
       <h1 className="text-page-heading text-text-primary">Notifications</h1>
       <p className="mt-1 text-secondary text-text-secondary">Email notifications</p>
 
-      <div className="mt-4 divide-y divide-border-default">
+      <div className="mt-4">
+        <NotificationPermissionBanner />
+      </div>
+
+      <div className="divide-y divide-border-default">
         {TOGGLES.map((toggle) => (
           <div key={toggle.key} className="flex items-center justify-between py-3">
             <span className="text-body text-text-primary">{toggle.label}</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={settings[toggle.key]}
-              onClick={() => handleToggle(toggle.key)}
-              disabled={savingKey === toggle.key}
-              className={[
-                "relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60",
-                settings[toggle.key] ? "bg-nhs-blue" : "bg-border-default",
-              ].join(" ")}
-            >
-              <span
-                className={[
-                  "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform",
-                  settings[toggle.key] ? "translate-x-[22px]" : "translate-x-0.5",
-                ].join(" ")}
-              />
-            </button>
+            <Toggle checked={settings[toggle.key]} onChange={() => handleToggle(toggle.key)} disabled={savingKey === toggle.key} />
           </div>
         ))}
       </div>

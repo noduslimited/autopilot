@@ -100,8 +100,9 @@ export default async function StaffProfilePage({
 
   return (
     <div className="p-5">
-      <Link href="/staff" className="text-secondary text-nhs-blue">
-        ← Back to staff
+      <Link href="/staff" className="inline-flex items-center gap-1 text-secondary text-nhs-blue">
+        <i className="ti ti-arrow-left text-[14px]" aria-hidden="true" />
+        Back to staff
       </Link>
 
       <div className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-card border border-border-default bg-card-bg py-3.5 px-4">

@@ -13,12 +13,16 @@ export function IncidentDetailActions({
   status,
   managerNotes,
   autoOpenSignOff = false,
+  signedOffAt,
+  signedOffByName,
 }: {
   incidentId: string;
   incidentRef: string;
   status: "open" | "closed";
   managerNotes: string | null;
   autoOpenSignOff?: boolean;
+  signedOffAt?: string | null;
+  signedOffByName?: string | null;
 }) {
   const router = useRouter();
   const [notes, setNotes] = useState(managerNotes ?? "");
@@ -77,7 +81,25 @@ export function IncidentDetailActions({
         </Button>
         {status === "open" ? (
           <Button onClick={() => setConfirmSignOff(true)}>Sign off and close incident</Button>
-        ) : null}
+        ) : (
+          // Real gap found: the Sign off button correctly disappeared once
+          // closed, but nothing replaced it — no visual confirmation the
+          // action actually happened. A real, previously-recorded date and
+          // manager name were already fetched by this point (the fix is
+          // showing it here, not gathering it), so nothing is fabricated.
+          <button
+            type="button"
+            disabled
+            className="inline-flex cursor-default items-center gap-1.5 rounded-btn bg-nhs-green px-3.5 py-[7px] text-[12px] font-medium text-white"
+          >
+            <i className="ti ti-check text-[14px]" aria-hidden="true" />
+            Signed off
+            {signedOffByName ? ` by ${signedOffByName}` : ""}
+            {signedOffAt
+              ? ` · ${new Date(signedOffAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
+              : ""}
+          </button>
+        )}
       </div>
 
       <ConfirmDialog

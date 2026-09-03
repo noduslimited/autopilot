@@ -212,7 +212,11 @@ export function CopilotChat({
   return (
     <div className="flex h-screen flex-col">
       <div className="border-b border-border-default bg-card-bg py-3.5 px-5">
-        <h1 className="flex items-center gap-1.5 text-page-heading text-text-primary">
+        <Link href="/dashboard" className="inline-flex items-center gap-1 text-secondary text-nhs-blue">
+          <i className="ti ti-arrow-left text-[14px]" aria-hidden="true" />
+          Back to dashboard
+        </Link>
+        <h1 className="mt-2 flex items-center gap-1.5 text-page-heading text-text-primary">
           <i className="ti ti-sparkles text-[18px] text-nhs-blue" aria-hidden="true" />
           AI Copilot
         </h1>
