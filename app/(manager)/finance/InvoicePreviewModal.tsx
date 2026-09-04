@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
-import type { LineItem } from "./types";
+import { generateInvoicePdf } from "@/lib/pdf/generateInvoicePdf";
+import type { LineItem, OrgInvoiceSettings } from "./types";
 
 interface InvoiceData {
   invoiceRef: string;
@@ -15,15 +16,25 @@ interface InvoiceData {
   orgName: string;
   lineItems: LineItem[];
   dueDate: string | null;
+  status: string;
 }
 
-export function InvoicePreviewModal({ invoiceId, onClose }: { invoiceId: string; onClose: () => void }) {
+export function InvoicePreviewModal({
+  invoiceId,
+  orgSettings,
+  onClose,
+}: {
+  invoiceId: string;
+  orgSettings: OrgInvoiceSettings;
+  onClose: () => void;
+}) {
   const [data, setData] = useState<InvoiceData | null>(null);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [dueDate, setDueDate] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sentConfirmation, setSentConfirmation] = useState<string | null>(null);
 
@@ -33,7 +44,7 @@ export function InvoicePreviewModal({ invoiceId, onClose }: { invoiceId: string;
       const supabase = createClient();
       const { data: invoice } = await supabase
         .from("invoices")
-        .select("invoice_ref, line_items, due_date, clients(first_name, last_name, address, nok_email), organisations(name)")
+        .select("invoice_ref, line_items, due_date, status, clients(first_name, last_name, address, nok_email), organisations(name)")
         .eq("id", invoiceId)
         .single();
 
@@ -50,6 +61,7 @@ export function InvoicePreviewModal({ invoiceId, onClose }: { invoiceId: string;
         orgName: org?.name ?? "",
         lineItems: items,
         dueDate: invoice.due_date,
+        status: invoice.status,
       });
       setLineItems(items);
       setDueDate(invoice.due_date ?? "");
@@ -83,6 +95,27 @@ export function InvoicePreviewModal({ invoiceId, onClose }: { invoiceId: string;
       .from("invoices")
       .update({ line_items: lineItems, subtotal: total, total_amount: total, due_date: dueDate || null })
       .eq("id", invoiceId);
+  }
+
+  async function handleDownloadPdf() {
+    if (!data) return;
+    setDownloading(true);
+    await handleSaveEdits();
+    generateInvoicePdf({
+      invoiceRef: data.invoiceRef,
+      orgName: data.orgName,
+      clientName: data.clientName,
+      clientAddress: data.clientAddress,
+      lineItems,
+      total,
+      dueDate: dueDate || null,
+      status: data.status,
+      bankName: orgSettings.bankName,
+      sortCode: orgSettings.sortCode,
+      accountNumber: orgSettings.accountNumber,
+      paymentTerms: orgSettings.paymentTerms,
+    });
+    setDownloading(false);
   }
 
   async function handleSend() {
@@ -181,17 +214,41 @@ export function InvoicePreviewModal({ invoiceId, onClose }: { invoiceId: string;
               <p className="text-body font-medium text-text-primary">Total: £{total.toFixed(2)}</p>
             </div>
 
-            <div className="mt-3 grid grid-cols-2 gap-3">
+            <div className={["mt-3 grid gap-3", orgSettings.sendViaApp ? "grid-cols-2" : "grid-cols-1"].join(" ")}>
               <div>
                 <p className="text-label text-text-secondary">Due date</p>
                 <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="mt-1" />
               </div>
-              <div>
-                <p className="text-label text-text-secondary">Send to</p>
-                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" />
-              </div>
+              {orgSettings.sendViaApp ? (
+                <div>
+                  <p className="text-label text-text-secondary">Send to</p>
+                  <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" />
+                </div>
+              ) : null}
             </div>
+
+            {orgSettings.bankName || orgSettings.sortCode || orgSettings.accountNumber ? (
+              <div className="mt-3 border-t border-border-default pt-3 text-secondary text-text-secondary">
+                <p className="text-label text-text-secondary">Payment details</p>
+                {orgSettings.bankName ? <p className="mt-1">Account name: {orgSettings.bankName}</p> : null}
+                {orgSettings.sortCode ? <p>Sort code: {orgSettings.sortCode}</p> : null}
+                {orgSettings.accountNumber ? <p>Account number: {orgSettings.accountNumber}</p> : null}
+              </div>
+            ) : null}
+
+            {orgSettings.sendViaApp && orgSettings.customMessage ? (
+              <div className="mt-3 rounded-input bg-page-bg p-2.5 text-secondary text-text-secondary">
+                <p className="text-label text-text-secondary">Message included with this invoice</p>
+                <p className="mt-1">{orgSettings.customMessage}</p>
+              </div>
+            ) : null}
           </div>
+
+          {!orgSettings.sendViaApp ? (
+            <p className="text-body text-text-secondary">
+              Sending invoices through Autopilot is turned off — download this invoice as a PDF and send it yourself.
+            </p>
+          ) : null}
 
           {error ? <p className="text-body text-nhs-red">{error}</p> : null}
 
@@ -199,9 +256,14 @@ export function InvoicePreviewModal({ invoiceId, onClose }: { invoiceId: string;
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="button" onClick={handleSend} disabled={sending}>
-              {sending ? "Sending…" : "Send invoice"}
+            <Button type="button" variant={orgSettings.sendViaApp ? "secondary" : "primary"} onClick={handleDownloadPdf} disabled={downloading}>
+              {downloading ? "Downloading…" : "Download PDF"}
             </Button>
+            {orgSettings.sendViaApp ? (
+              <Button type="button" onClick={handleSend} disabled={sending}>
+                {sending ? "Sending…" : "Send invoice"}
+              </Button>
+            ) : null}
           </div>
         </div>
       )}

@@ -925,7 +925,9 @@ export type Database = {
           invoice_account_number: string | null
           invoice_bank_name: string | null
           invoice_company_number: string | null
+          invoice_custom_message: string | null
           invoice_payment_terms: number
+          invoice_send_via_app: boolean
           invoice_sort_code: string | null
           invoice_vat_number: string | null
           logo_url: string | null
@@ -955,7 +957,9 @@ export type Database = {
           invoice_account_number?: string | null
           invoice_bank_name?: string | null
           invoice_company_number?: string | null
+          invoice_custom_message?: string | null
           invoice_payment_terms?: number
+          invoice_send_via_app?: boolean
           invoice_sort_code?: string | null
           invoice_vat_number?: string | null
           logo_url?: string | null
@@ -985,7 +989,9 @@ export type Database = {
           invoice_account_number?: string | null
           invoice_bank_name?: string | null
           invoice_company_number?: string | null
+          invoice_custom_message?: string | null
           invoice_payment_terms?: number
+          invoice_send_via_app?: boolean
           invoice_sort_code?: string | null
           invoice_vat_number?: string | null
           logo_url?: string | null

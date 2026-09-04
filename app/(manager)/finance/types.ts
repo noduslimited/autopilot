@@ -13,3 +13,13 @@ export interface InvoiceClientOption {
   first_name: string;
   last_name: string;
 }
+
+export interface OrgInvoiceSettings {
+  orgName: string;
+  bankName: string | null;
+  sortCode: string | null;
+  accountNumber: string | null;
+  paymentTerms: number;
+  sendViaApp: boolean;
+  customMessage: string | null;
+}

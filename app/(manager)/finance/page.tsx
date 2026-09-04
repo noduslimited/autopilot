@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { FinanceListClient, type InvoiceListItem } from "./FinanceListClient";
 
@@ -13,12 +14,23 @@ const MONTH_LABEL = new Date().toLocaleDateString("en-GB", { month: "long", year
 export default async function FinancePage() {
   const supabase = await createClient();
 
-  const { data: invoiceRows } = await supabase
-    .from("invoices")
-    .select("id, invoice_ref, status, total_amount, due_date, created_at, client_id, clients(first_name, last_name)")
-    .order("created_at", { ascending: false });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: managerRow } = await supabase.from("users").select("org_id").eq("id", user!.id).single();
 
-  const { data: clients } = await supabase.from("clients").select("id, first_name, last_name").eq("status", "active").order("first_name");
+  const [{ data: invoiceRows }, { data: clients }, { data: org }] = await Promise.all([
+    supabase
+      .from("invoices")
+      .select("id, invoice_ref, status, total_amount, due_date, sent_at, sent_to_email, created_at, client_id, clients(first_name, last_name)")
+      .order("created_at", { ascending: false }),
+    supabase.from("clients").select("id, first_name, last_name").eq("status", "active").order("first_name"),
+    supabase
+      .from("organisations")
+      .select("name, invoice_bank_name, invoice_sort_code, invoice_account_number, invoice_payment_terms, invoice_send_via_app, invoice_custom_message")
+      .eq("id", managerRow!.org_id)
+      .single(),
+  ]);
 
   const rows = invoiceRows ?? [];
   const monthStart = startOfMonthUTC();
@@ -42,6 +54,8 @@ export default async function FinancePage() {
       status: r.status as "draft" | "sent" | "overdue" | "paid" | "void",
       totalAmount: Number(r.total_amount),
       dueDate: r.due_date,
+      sentAt: r.sent_at,
+      sentToEmail: r.sent_to_email,
     };
   });
 
@@ -54,6 +68,10 @@ export default async function FinancePage() {
             {MONTH_LABEL} · {unpaidCount} invoice{unpaidCount === 1 ? "" : "s"} unpaid
           </p>
         </div>
+        <Link href="/finance/settings" className="inline-flex items-center gap-1.5 rounded-btn border border-border-default bg-card-bg px-3.5 py-[7px] text-[12px] font-medium text-text-primary">
+          <i className="ti ti-settings text-[14px]" aria-hidden="true" />
+          Finance settings
+        </Link>
       </div>
 
       <div className="mt-4 rounded-card border border-amber-text/20 bg-amber-light py-2.5 px-4 text-body text-amber-text">
@@ -84,7 +102,19 @@ export default async function FinancePage() {
         </div>
       </div>
 
-      <FinanceListClient invoices={invoices} clients={clients ?? []} />
+      <FinanceListClient
+        invoices={invoices}
+        clients={clients ?? []}
+        orgSettings={{
+          orgName: org?.name ?? "",
+          bankName: org?.invoice_bank_name ?? null,
+          sortCode: org?.invoice_sort_code ?? null,
+          accountNumber: org?.invoice_account_number ?? null,
+          paymentTerms: org?.invoice_payment_terms ?? 30,
+          sendViaApp: org?.invoice_send_via_app ?? true,
+          customMessage: org?.invoice_custom_message ?? null,
+        }}
+      />
     </div>
   );
 }

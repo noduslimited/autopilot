@@ -7,9 +7,11 @@ import { createClient } from "@/lib/supabase/client";
 import { Badge, type BadgeVariant } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Modal";
+import { generateInvoiceListPdf } from "@/lib/pdf/generateInvoiceListPdf";
+import { generateInvoicePdf } from "@/lib/pdf/generateInvoicePdf";
 import { CreateInvoiceModal } from "./CreateInvoiceModal";
 import { InvoicePreviewModal } from "./InvoicePreviewModal";
-import type { InvoiceClientOption } from "./types";
+import type { InvoiceClientOption, LineItem, OrgInvoiceSettings } from "./types";
 
 export interface InvoiceListItem {
   id: string;
@@ -18,6 +20,8 @@ export interface InvoiceListItem {
   status: "draft" | "sent" | "overdue" | "paid" | "void";
   totalAmount: number;
   dueDate: string | null;
+  sentAt: string | null;
+  sentToEmail: string | null;
 }
 
 const STATUS_BADGE: Record<InvoiceListItem["status"], { label: string; variant: BadgeVariant }> = {
@@ -28,20 +32,30 @@ const STATUS_BADGE: Record<InvoiceListItem["status"], { label: string; variant: 
   void: { label: "Void", variant: "notStarted" },
 };
 
-function csvEscape(value: string): string {
-  return `"${value.replace(/"/g, '""')}"`;
-}
-
-export function FinanceListClient({ invoices, clients }: { invoices: InvoiceListItem[]; clients: InvoiceClientOption[] }) {
+export function FinanceListClient({
+  invoices,
+  clients,
+  orgSettings,
+}: {
+  invoices: InvoiceListItem[];
+  clients: InvoiceClientOption[];
+  orgSettings: OrgInvoiceSettings;
+}) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState("all");
   const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
   const [markPaidTarget, setMarkPaidTarget] = useState<InvoiceListItem | null>(null);
   const [markingPaid, setMarkingPaid] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const filtered = useMemo(
     () => (statusFilter === "all" ? invoices : invoices.filter((i) => i.status === statusFilter)),
     [invoices, statusFilter],
+  );
+
+  const sentHistory = useMemo(
+    () => invoices.filter((i) => i.sentAt).sort((a, b) => (b.sentAt ?? "").localeCompare(a.sentAt ?? "")),
+    [invoices],
   );
 
   async function handleMarkPaid() {
@@ -57,28 +71,41 @@ export function FinanceListClient({ invoices, clients }: { invoices: InvoiceList
     router.refresh();
   }
 
-  function handleExportCsv() {
-    const header = ["Client", "Reference", "Amount", "Status", "Due date"];
-    const lines = filtered.map((i) =>
-      [csvEscape(i.clientName), csvEscape(i.invoiceRef), i.totalAmount.toFixed(2), i.status, i.dueDate ?? ""].join(","),
+  function handleExportPdf() {
+    generateInvoiceListPdf(
+      filtered.map((i) => ({ clientName: i.clientName, invoiceRef: i.invoiceRef, totalAmount: i.totalAmount, status: i.status, dueDate: i.dueDate })),
     );
-    const csv = [header.join(","), ...lines].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `invoices-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+  }
+
+  async function handleDownloadInvoicePdf(invoice: InvoiceListItem) {
+    setDownloadingId(invoice.id);
+    const supabase = createClient();
+    const { data } = await supabase.from("invoices").select("line_items, due_date, status").eq("id", invoice.id).single();
+    setDownloadingId(null);
+    if (!data) return;
+    generateInvoicePdf({
+      invoiceRef: invoice.invoiceRef,
+      orgName: orgSettings.orgName,
+      clientName: invoice.clientName,
+      clientAddress: "",
+      lineItems: (data.line_items as unknown as LineItem[]) ?? [],
+      total: invoice.totalAmount,
+      dueDate: data.due_date,
+      status: data.status,
+      bankName: orgSettings.bankName,
+      sortCode: orgSettings.sortCode,
+      accountNumber: orgSettings.accountNumber,
+      paymentTerms: orgSettings.paymentTerms,
+    });
   }
 
   return (
     <div>
       <div className="mt-4 flex justify-end gap-2">
-        <Button variant="secondary" onClick={handleExportCsv}>
+        <Button variant="secondary" onClick={handleExportPdf}>
           Export
         </Button>
-        <CreateInvoiceModal clients={clients} />
+        <CreateInvoiceModal clients={clients} orgSettings={orgSettings} />
       </div>
 
       <div className="mt-4 rounded-card border border-border-default bg-card-bg py-3.5 px-4">
@@ -172,6 +199,14 @@ export function FinanceListClient({ invoices, clients }: { invoices: InvoiceList
                               View
                             </button>
                           )}
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadInvoicePdf(invoice)}
+                            disabled={downloadingId === invoice.id}
+                            className="rounded-btn border border-border-default bg-card-bg px-3 py-[6px] text-[12px] font-medium text-text-primary"
+                          >
+                            {downloadingId === invoice.id ? "…" : "PDF"}
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -183,17 +218,70 @@ export function FinanceListClient({ invoices, clients }: { invoices: InvoiceList
         )}
       </div>
 
-      <div className="mt-4 flex items-center justify-between rounded-[10px] border border-ai-blue-border bg-ai-blue-light py-3 px-3.5">
+      <div className="mt-4 rounded-card border border-border-default bg-card-bg py-3.5 px-4">
+        <h2 className="text-subsection-heading text-text-primary">Sent invoices</h2>
+        {sentHistory.length === 0 ? (
+          <p className="mt-2 text-body text-text-secondary">No invoices have been sent yet.</p>
+        ) : (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[560px] border-collapse">
+              <thead>
+                <tr className="border-b border-border-default text-left text-label text-text-secondary">
+                  <th className="py-2 pr-4">Date sent</th>
+                  <th className="py-2 pr-4">Client</th>
+                  <th className="py-2 pr-4">Amount</th>
+                  <th className="py-2 pr-4">Status</th>
+                  <th className="py-2 pr-4" />
+                </tr>
+              </thead>
+              <tbody>
+                {sentHistory.map((invoice) => {
+                  const badge = STATUS_BADGE[invoice.status];
+                  return (
+                    <tr key={invoice.id} className="border-b border-border-default last:border-b-0">
+                      <td className="py-2.5 pr-4 text-body text-text-primary">
+                        {invoice.sentAt ? new Date(invoice.sentAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                        {invoice.sentToEmail ? <span className="block text-secondary text-text-secondary">to {invoice.sentToEmail}</span> : null}
+                      </td>
+                      <td className="py-2.5 pr-4 text-body font-medium text-text-primary">{invoice.clientName}</td>
+                      <td className="py-2.5 pr-4 text-body text-text-primary">£{invoice.totalAmount.toFixed(2)}</td>
+                      <td className="py-2.5 pr-4">
+                        <Badge variant={badge.variant}>{badge.label}</Badge>
+                      </td>
+                      <td className="py-2.5 pr-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadInvoicePdf(invoice)}
+                          disabled={downloadingId === invoice.id}
+                          className="rounded-btn border border-border-default bg-card-bg px-3 py-[6px] text-[12px] font-medium text-text-primary"
+                        >
+                          {downloadingId === invoice.id ? "…" : "PDF"}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3 rounded-[10px] border border-ai-blue-border bg-ai-blue-light py-3 px-3.5">
         <p className="flex items-start gap-1.5 text-body text-ai-blue-text">
           <i className="ti ti-sparkles mt-0.5 shrink-0 text-[14px] text-nhs-blue" aria-hidden="true" />
-          AI can pre-populate a draft invoice based on visits completed for any client this month. You always review it before it goes out.
+          <span>
+            AI pre-fills each line with the real dates and hours from that client&apos;s completed visits this period — it never invents a rate,
+            since Autopilot doesn&apos;t store one for you. You always set the rate and review every line before an invoice is sent or downloaded.
+          </span>
         </p>
-        <CreateInvoiceModal clients={clients} label="Try it" />
+        <CreateInvoiceModal clients={clients} orgSettings={orgSettings} label="Try it" />
       </div>
 
       {previewInvoiceId ? (
         <InvoicePreviewModal
           invoiceId={previewInvoiceId}
+          orgSettings={orgSettings}
           onClose={() => {
             setPreviewInvoiceId(null);
             router.refresh();

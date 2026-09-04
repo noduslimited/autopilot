@@ -7,21 +7,60 @@ import { Button } from "@/components/ui/Button";
 import { Input, Select, FieldLabel } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { InvoicePreviewModal } from "./InvoicePreviewModal";
-import type { InvoiceClientOption, LineItem } from "./types";
+import type { InvoiceClientOption, LineItem, OrgInvoiceSettings } from "./types";
 
-function startOfMonthISO(): string {
+function startOfMonthISODate(): string {
   const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
+}
+
+function todayISODate(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function hoursBetween(start: string, end: string): number {
   return Math.round(((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60)) * 100) / 100;
 }
 
-export function CreateInvoiceModal({ clients, label = "Create invoice" }: { clients: InvoiceClientOption[]; label?: string }) {
+// Gokul, direct request 2026-09-03 — Finance overhaul item 9.2: line
+// items broken down day-by-day (not one line for the whole period).
+// Groups same-day visits into a single row (summing hours) rather than
+// one row per visit — a client with two visits on the same day gets one
+// clear daily line, matching "date, hours, rate, daily total" exactly.
+function buildDailyLineItems(
+  visits: { scheduled_start: string; scheduled_end: string; check_in_time: string | null; check_out_time: string | null }[],
+): LineItem[] {
+  const hoursByDate = new Map<string, number>();
+  for (const v of visits) {
+    const start = v.check_in_time ?? v.scheduled_start;
+    const end = v.check_out_time ?? v.scheduled_end;
+    const dateKey = start.slice(0, 10);
+    hoursByDate.set(dateKey, (hoursByDate.get(dateKey) ?? 0) + hoursBetween(start, end));
+  }
+  return Array.from(hoursByDate.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([dateKey, hours]) => ({
+      description: `Care visit — ${new Date(`${dateKey}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`,
+      quantity: Math.round(hours * 100) / 100,
+      unit_price: 0,
+      total: 0,
+    }));
+}
+
+export function CreateInvoiceModal({
+  clients,
+  orgSettings,
+  label = "Create invoice",
+}: {
+  clients: InvoiceClientOption[];
+  orgSettings: OrgInvoiceSettings;
+  label?: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [clientId, setClientId] = useState("");
+  const [fromDate, setFromDate] = useState(startOfMonthISODate());
+  const [toDate, setToDate] = useState(todayISODate());
   const [dueDate, setDueDate] = useState("");
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [loadingVisits, setLoadingVisits] = useState(false);
@@ -32,44 +71,44 @@ export function CreateInvoiceModal({ clients, label = "Create invoice" }: { clie
   function close() {
     setOpen(false);
     setClientId("");
+    setFromDate(startOfMonthISODate());
+    setToDate(todayISODate());
     setDueDate("");
     setLineItems([]);
     setError(null);
   }
 
-  async function handleClientChange(newClientId: string) {
-    setClientId(newClientId);
-    setLineItems([]);
-    if (!newClientId) return;
-
+  async function loadVisitsForRange(targetClientId: string, from: string, to: string) {
+    if (!targetClientId) return;
     setLoadingVisits(true);
     const supabase = createClient();
     const { data: visits } = await supabase
       .from("visits")
       .select("scheduled_start, scheduled_end, check_in_time, check_out_time")
-      .eq("client_id", newClientId)
+      .eq("client_id", targetClientId)
       .eq("status", "completed")
-      .gte("scheduled_start", startOfMonthISO())
+      .gte("scheduled_start", `${from}T00:00:00`)
+      .lt("scheduled_start", `${to}T23:59:59.999`)
       .order("scheduled_start");
 
     // Rate isn't stored anywhere in the schema (clients/staff/orgs have no
     // hourly_rate field) — pre-populate description and hours from real
     // visit data, leave the rate at 0 for the manager to fill in rather
     // than fabricate a number the app has no source for.
-    const items: LineItem[] = (visits ?? []).map((v) => {
-      const start = v.check_in_time ?? v.scheduled_start;
-      const end = v.check_out_time ?? v.scheduled_end;
-      const hours = hoursBetween(start, end);
-      return {
-        description: `Care visit — ${new Date(start).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
-        quantity: hours,
-        unit_price: 0,
-        total: 0,
-      };
-    });
-
-    setLineItems(items);
+    setLineItems(buildDailyLineItems(visits ?? []));
     setLoadingVisits(false);
+  }
+
+  async function handleClientChange(newClientId: string) {
+    setClientId(newClientId);
+    setLineItems([]);
+    await loadVisitsForRange(newClientId, fromDate, toDate);
+  }
+
+  async function handleDateRangeChange(newFrom: string, newTo: string) {
+    setFromDate(newFrom);
+    setToDate(newTo);
+    if (clientId) await loadVisitsForRange(clientId, newFrom, newTo);
   }
 
   function updateLineItem(index: number, patch: { description?: string; quantity?: number; unit_price?: number }) {
@@ -93,9 +132,18 @@ export function CreateInvoiceModal({ clients, label = "Create invoice" }: { clie
     setLineItems((current) => current.filter((_, i) => i !== index));
   }
 
-  async function handleSave(reviewAndSend: boolean) {
+  // Gokul, direct request 2026-09-03 — item 9.3: no separate "save as
+  // draft" action any more. Generating an invoice always goes straight
+  // into the review screen (InvoicePreviewModal), where the only actions
+  // are downloading it or (if the org has that turned on) emailing it —
+  // there's no longer a silent "save and come back later" state a
+  // manager could lose track of. The row still gets created with
+  // status: "draft" internally (needed for a real invoice_ref, generated
+  // by the same DB trigger every other invoice uses) — "draft" here is
+  // just the pre-send/pre-download status, not a manager-facing action.
+  async function handleGenerate() {
     if (!clientId || lineItems.length === 0) {
-      setError("Select a client with completed visits this month, or add a line item manually.");
+      setError("Select a client with completed visits in this period, or add a line item manually.");
       return;
     }
 
@@ -133,12 +181,7 @@ export function CreateInvoiceModal({ clients, label = "Create invoice" }: { clie
       return;
     }
 
-    if (reviewAndSend) {
-      setPreviewInvoiceId(invoice.id);
-    } else {
-      close();
-      router.refresh();
-    }
+    setPreviewInvoiceId(invoice.id);
   }
 
   return (
@@ -160,13 +203,24 @@ export function CreateInvoiceModal({ clients, label = "Create invoice" }: { clie
             </Select>
           </div>
 
-          {loadingVisits ? <p className="text-body text-text-secondary">Loading this month's visits…</p> : null}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FieldLabel required>From date</FieldLabel>
+              <Input type="date" required value={fromDate} onChange={(e) => handleDateRangeChange(e.target.value, toDate)} />
+            </div>
+            <div>
+              <FieldLabel required>To date</FieldLabel>
+              <Input type="date" required value={toDate} min={fromDate} onChange={(e) => handleDateRangeChange(fromDate, e.target.value)} />
+            </div>
+          </div>
+
+          {loadingVisits ? <p className="text-body text-text-secondary">Loading visits for this period…</p> : null}
 
           {clientId && !loadingVisits ? (
             <div>
-              <FieldLabel>Line items</FieldLabel>
+              <FieldLabel>Line items — one row per day</FieldLabel>
               {lineItems.length === 0 ? (
-                <p className="text-body text-text-secondary">No completed visits found this month. Add a line item manually.</p>
+                <p className="text-body text-text-secondary">No completed visits found in this period. Add a line item manually.</p>
               ) : null}
               <div className="max-h-[260px] space-y-2 overflow-y-auto">
                 {lineItems.map((item, i) => (
@@ -217,11 +271,8 @@ export function CreateInvoiceModal({ clients, label = "Create invoice" }: { clie
             <Button type="button" variant="secondary" onClick={close}>
               Cancel
             </Button>
-            <Button type="button" variant="secondary" onClick={() => handleSave(false)} disabled={saving}>
-              Save as draft
-            </Button>
-            <Button type="button" onClick={() => handleSave(true)} disabled={saving}>
-              {saving ? "Saving…" : "Review and send"}
+            <Button type="button" onClick={handleGenerate} disabled={saving}>
+              {saving ? "Generating…" : "Generate invoice"}
             </Button>
           </div>
         </div>
@@ -230,6 +281,7 @@ export function CreateInvoiceModal({ clients, label = "Create invoice" }: { clie
       {previewInvoiceId ? (
         <InvoicePreviewModal
           invoiceId={previewInvoiceId}
+          orgSettings={orgSettings}
           onClose={() => {
             setPreviewInvoiceId(null);
             close();

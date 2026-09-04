@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
-import { Input, FieldLabel } from "@/components/ui/Input";
+import { Input, Textarea, FieldLabel } from "@/components/ui/Input";
+import { Toggle } from "@/components/ui/Toggle";
 
 interface InvoicingOrg {
   id: string;
@@ -15,6 +16,8 @@ interface InvoicingOrg {
   invoice_payment_terms: number;
   invoice_company_number: string | null;
   invoice_vat_number: string | null;
+  invoice_send_via_app: boolean;
+  invoice_custom_message: string | null;
 }
 
 export function InvoicingDefaultsForm({ org }: { org: InvoicingOrg }) {
@@ -26,6 +29,8 @@ export function InvoicingDefaultsForm({ org }: { org: InvoicingOrg }) {
     paymentTerms: String(org.invoice_payment_terms),
     companyNumber: org.invoice_company_number ?? "",
     vatNumber: org.invoice_vat_number ?? "",
+    sendViaApp: org.invoice_send_via_app,
+    customMessage: org.invoice_custom_message ?? "",
   });
   const [saving, setSaving] = useState(false);
   const [savedConfirmation, setSavedConfirmation] = useState(false);
@@ -42,6 +47,8 @@ export function InvoicingDefaultsForm({ org }: { org: InvoicingOrg }) {
         invoice_payment_terms: Number(form.paymentTerms) || 30,
         invoice_company_number: form.companyNumber.trim() || null,
         invoice_vat_number: form.vatNumber.trim() || null,
+        invoice_send_via_app: form.sendViaApp,
+        invoice_custom_message: form.customMessage.trim() || null,
       })
       .eq("id", org.id);
     setSaving(false);
@@ -53,7 +60,32 @@ export function InvoicingDefaultsForm({ org }: { org: InvoicingOrg }) {
     <div className="rounded-card border border-border-default bg-card-bg py-4 px-5">
       <h1 className="text-page-heading text-text-primary">Invoicing defaults</h1>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="mt-4 flex items-start justify-between gap-3 rounded-input border border-border-default p-3">
+        <div>
+          <p className="text-body font-medium text-text-primary">Send invoices directly through Autopilot</p>
+          <p className="mt-0.5 text-secondary text-text-secondary">
+            {form.sendViaApp
+              ? "Invoices can be emailed straight from the review screen, with a custom message and your bank details included."
+              : "Invoices are download-only — review and hand them to clients yourself (email, post, or however you normally bill)."}
+          </p>
+        </div>
+        <Toggle checked={form.sendViaApp} onChange={() => setForm((f) => ({ ...f, sendViaApp: !f.sendViaApp }))} />
+      </div>
+
+      {form.sendViaApp ? (
+        <div className="mt-3">
+          <FieldLabel>Custom message (included in every emailed invoice)</FieldLabel>
+          <Textarea
+            value={form.customMessage}
+            onChange={(e) => setForm((f) => ({ ...f, customMessage: e.target.value }))}
+            placeholder="e.g. Thank you for choosing us — please get in touch if you have any questions about this invoice."
+            className="min-h-[70px]"
+          />
+        </div>
+      ) : null}
+
+      <p className="mt-4 text-label text-text-secondary">Bank details (shown on every invoice, emailed or downloaded)</p>
+      <div className="mt-1.5 grid grid-cols-1 gap-3 md:grid-cols-2">
         <div>
           <FieldLabel>Invoice prefix</FieldLabel>
           <Input value={`${org.org_code}-INV-`} disabled />

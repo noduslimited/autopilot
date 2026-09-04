@@ -18,7 +18,15 @@ function isSendInvoiceBody(value: unknown): value is SendInvoiceBody {
   return typeof body.invoiceId === "string" && typeof body.email === "string";
 }
 
-function renderInvoiceHtml(orgName: string, clientName: string, invoiceRef: string, lineItems: LineItem[], total: number, dueDate: string | null): string {
+interface OrgInvoiceDetails {
+  name: string;
+  invoice_custom_message: string | null;
+  invoice_bank_name: string | null;
+  invoice_sort_code: string | null;
+  invoice_account_number: string | null;
+}
+
+function renderInvoiceHtml(org: OrgInvoiceDetails, clientName: string, invoiceRef: string, lineItems: LineItem[], total: number, dueDate: string | null): string {
   const rows = lineItems
     .map(
       (item) =>
@@ -26,9 +34,16 @@ function renderInvoiceHtml(orgName: string, clientName: string, invoiceRef: stri
     )
     .join("");
 
+  const bankLines = [
+    org.invoice_bank_name ? `Account name: ${org.invoice_bank_name}` : null,
+    org.invoice_sort_code ? `Sort code: ${org.invoice_sort_code}` : null,
+    org.invoice_account_number ? `Account number: ${org.invoice_account_number}` : null,
+  ].filter((line): line is string => !!line);
+
   return `
+    ${org.invoice_custom_message ? `<p>${org.invoice_custom_message}</p>` : ""}
     <h2>Invoice ${invoiceRef}</h2>
-    <p>From ${orgName}, for care provided to ${clientName}.</p>
+    <p>From ${org.name}, for care provided to ${clientName}.</p>
     <table style="width:100%;border-collapse:collapse;">
       <thead>
         <tr>
@@ -42,7 +57,8 @@ function renderInvoiceHtml(orgName: string, clientName: string, invoiceRef: stri
     </table>
     <p style="text-align:right;font-weight:bold;">Total due: £${total.toFixed(2)}</p>
     ${dueDate ? `<p>Due date: ${new Date(dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</p>` : ""}
-    <p>Payment should be made directly to ${orgName} by bank transfer or card reader, as arranged.</p>
+    ${bankLines.length > 0 ? `<p>Payment details:<br>${bankLines.join("<br>")}</p>` : ""}
+    <p>Payment should be made directly to ${org.name} by bank transfer or card reader, as arranged.</p>
   `;
 }
 
@@ -65,7 +81,9 @@ export async function POST(request: Request) {
 
   const { data: invoice } = await supabase
     .from("invoices")
-    .select("id, invoice_ref, line_items, total_amount, due_date, clients(first_name, last_name), organisations(name)")
+    .select(
+      "id, invoice_ref, line_items, total_amount, due_date, clients(first_name, last_name), organisations(name, invoice_custom_message, invoice_bank_name, invoice_sort_code, invoice_account_number, invoice_send_via_app)",
+    )
     .eq("id", body.invoiceId)
     .single();
 
@@ -77,8 +95,18 @@ export async function POST(request: Request) {
   const org = Array.isArray(invoice.organisations) ? invoice.organisations[0] : invoice.organisations;
   const clientName = client ? `${client.first_name} ${client.last_name}` : "the client";
 
+  if (org && !org.invoice_send_via_app) {
+    return NextResponse.json({ error: "Sending invoices through Autopilot is turned off for this organisation." }, { status: 403 });
+  }
+
   const html = renderInvoiceHtml(
-    org?.name ?? "Care provider",
+    {
+      name: org?.name ?? "Care provider",
+      invoice_custom_message: org?.invoice_custom_message ?? null,
+      invoice_bank_name: org?.invoice_bank_name ?? null,
+      invoice_sort_code: org?.invoice_sort_code ?? null,
+      invoice_account_number: org?.invoice_account_number ?? null,
+    },
     clientName,
     invoice.invoice_ref,
     (invoice.line_items as unknown as LineItem[]) ?? [],
