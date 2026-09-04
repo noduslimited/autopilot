@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import type { ShiftRequestRow } from "@/components/manager/ShiftRequestsPanel";
 import { RotaGrid, type RotaStaff, type RotaShift, type RotaClient, type RotaVisit } from "./RotaGrid";
 
 // Source: PRD section 4.4 (Rota) + Gokul's full-redesign request, 2026-09-03
@@ -59,7 +60,7 @@ export default async function RotaPage({
   const rangeStart = view === "day" ? selectedDate : view === "month" ? monthStartISO : weekDates[0];
   const rangeEnd = view === "day" ? selectedDate : view === "month" ? monthEndISO : weekDates[6];
 
-  const [{ data: staffRows }, { data: shiftRows }, { data: clientRows }, { data: visitRows }] = await Promise.all([
+  const [{ data: staffRows }, { data: shiftRows }, { data: clientRows }, { data: visitRows }, { data: requestRows }] = await Promise.all([
     supabase
       .from("staff")
       .select("id, role, users(first_name, last_name)")
@@ -77,7 +78,45 @@ export default async function RotaPage({
           .select("id, client_id, assigned_carer_id, scheduled_start, scheduled_end, status, clients(first_name, last_name)")
           .gte("scheduled_start", `${rangeStart}T00:00:00`)
           .lt("scheduled_start", `${addDaysISO(rangeEnd, 1)}T00:00:00`),
+    // Org-wide pending shift requests — RLS (managers_view_org_requests)
+    // already scopes this to the manager's own org, no explicit org_id
+    // filter needed here.
+    supabase
+      .from("shift_requests")
+      .select(
+        "id, request_type, status, date_from, date_to, category, notes, requested_at, staff:staff_id(users(first_name, last_name)), swap_with:swap_with_staff_id(users(first_name, last_name))",
+      )
+      .eq("status", "pending")
+      .order("requested_at", { ascending: true }),
   ]);
+
+  // Approved holiday/time-off requests overlapping the displayed range —
+  // the rota_shifts shift_type enum alone can't distinguish "Holiday"
+  // from plain "Time off" (both are stored as annual_leave), only the
+  // originating shift_requests row can. Fetched separately since it's an
+  // org-wide, date-range query rather than a single-shift lookup.
+  const { data: approvedLeaveRows } = await supabase
+    .from("shift_requests")
+    .select("staff_id, request_type, date_from, date_to")
+    .eq("status", "approved")
+    .in("request_type", ["holiday", "time_off"])
+    .lte("date_from", rangeEnd)
+    .or(`date_to.gte.${rangeStart},date_to.is.null`);
+
+  // Plain object, not a Map — this crosses the server-to-client component
+  // boundary as a RotaGrid prop, and RSC serialization only supports
+  // JSON-plain values.
+  const leaveTypeByStaffDate: Record<string, "holiday" | "time_off"> = {};
+  for (const row of approvedLeaveRows ?? []) {
+    const from = row.date_from;
+    const to = row.date_to ?? row.date_from;
+    let cursor = from < rangeStart ? rangeStart : from;
+    const end = to > rangeEnd ? rangeEnd : to;
+    while (cursor <= end) {
+      leaveTypeByStaffDate[`${row.staff_id}|${cursor}`] = row.request_type as "holiday" | "time_off";
+      cursor = addDaysISO(cursor, 1);
+    }
+  }
 
   const staff: RotaStaff[] = (staffRows ?? [])
     .map((row) => {
@@ -104,6 +143,24 @@ export default async function RotaPage({
     };
   });
 
+  const pendingRequests: ShiftRequestRow[] = (requestRows ?? []).map((r) => {
+    const staffRow = Array.isArray(r.staff) ? r.staff[0] : r.staff;
+    const staffUser = staffRow ? (Array.isArray(staffRow.users) ? staffRow.users[0] : staffRow.users) : null;
+    const swapRow = Array.isArray(r.swap_with) ? r.swap_with[0] : r.swap_with;
+    const swapUser = swapRow ? (Array.isArray(swapRow.users) ? swapRow.users[0] : swapRow.users) : null;
+    return {
+      id: r.id,
+      staffName: staffUser ? `${staffUser.first_name} ${staffUser.last_name}` : "Unknown",
+      requestType: r.request_type as ShiftRequestRow["requestType"],
+      dateFrom: r.date_from,
+      dateTo: r.date_to,
+      category: r.category,
+      notes: r.notes,
+      swapWithName: swapUser ? `${swapUser.first_name} ${swapUser.last_name}` : null,
+      requestedAt: r.requested_at,
+    };
+  });
+
   return (
     <RotaGrid
       view={view}
@@ -115,6 +172,8 @@ export default async function RotaPage({
       selectedDate={selectedDate}
       monthStartISO={monthStartISO}
       todayISO={todayISO}
+      pendingRequests={pendingRequests}
+      leaveTypeByStaffDate={leaveTypeByStaffDate}
     />
   );
 }

@@ -24,6 +24,7 @@ export function WeekView({
   isPastWeek,
   shiftByStaffAndDate,
   visitsByStaffAndDate,
+  leaveTypeByStaffDate,
   onAddShift,
   onOpenDetail,
   onDragStart,
@@ -35,6 +36,7 @@ export function WeekView({
   isPastWeek: boolean;
   shiftByStaffAndDate: Map<string, RotaShift>;
   visitsByStaffAndDate: Map<string, RotaVisit[]>;
+  leaveTypeByStaffDate: Record<string, "holiday" | "time_off">;
   onAddShift: (staffId?: string, date?: string) => void;
   onOpenDetail: (shift: RotaShift) => void;
   onDragStart: (staffId: string, date: string) => void;
@@ -70,6 +72,15 @@ export function WeekView({
       return (
         <button type="button" onClick={() => editable && onOpenDetail(shift)} className="w-full rounded-[20px] bg-danger-red-light px-2 py-1.5 text-center text-secondary font-medium text-danger-red">
           Sick
+        </button>
+      );
+    }
+
+    if (shift.shift_type === "annual_leave") {
+      const leaveType = leaveTypeByStaffDate[`${staffMember.id}|${date}`];
+      return (
+        <button type="button" onClick={() => editable && onOpenDetail(shift)} className="w-full rounded-[20px] bg-amber-light px-2 py-1.5 text-center text-secondary font-medium text-amber-text">
+          {leaveType === "holiday" ? "Holiday" : "Time off"}
         </button>
       );
     }

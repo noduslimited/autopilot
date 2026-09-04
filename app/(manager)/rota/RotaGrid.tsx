@@ -18,6 +18,7 @@ import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
 import { MonthView } from "./MonthView";
 import { AiScheduleForm } from "./AiScheduleForm";
+import { ShiftRequestsPanel, type ShiftRequestRow } from "@/components/manager/ShiftRequestsPanel";
 
 export interface RotaStaff {
   id: string;
@@ -236,6 +237,8 @@ export function RotaGrid({
   selectedDate,
   monthStartISO,
   todayISO,
+  pendingRequests,
+  leaveTypeByStaffDate,
 }: {
   view: "week" | "day" | "month";
   staff: RotaStaff[];
@@ -246,6 +249,8 @@ export function RotaGrid({
   selectedDate: string;
   monthStartISO: string;
   todayISO: string;
+  pendingRequests: ShiftRequestRow[];
+  leaveTypeByStaffDate: Record<string, "holiday" | "time_off">;
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -682,6 +687,15 @@ export function RotaGrid({
         </div>
       ) : null}
 
+      {pendingRequests.length > 0 ? (
+        <div className="mt-4 rounded-card border border-border-default bg-card-bg py-3.5 px-4">
+          <h2 className="text-subsection-heading text-text-primary">Shift requests ({pendingRequests.length} pending)</h2>
+          <div className="mt-2.5">
+            <ShiftRequestsPanel requests={pendingRequests} emptyMessage="No pending requests." />
+          </div>
+        </div>
+      ) : null}
+
       <AiScheduleForm staff={staff} clients={clients} onCreated={() => router.refresh()} createOrUpdateShift={saveShiftDirect} />
 
       {aiSuggestion && !aiDismissed ? (
@@ -711,6 +725,7 @@ export function RotaGrid({
           isPastWeek={isPastWeek}
           shiftByStaffAndDate={shiftByStaffAndDate}
           visitsByStaffAndDate={visitsByStaffAndDate}
+          leaveTypeByStaffDate={leaveTypeByStaffDate}
           onAddShift={openAddShift}
           onOpenDetail={setDetailShift}
           onDragStart={onDragStart}
@@ -723,6 +738,7 @@ export function RotaGrid({
           isPast={isPastDate(selectedDate)}
           shiftByStaffAndDate={shiftByStaffAndDate}
           visitsByStaffAndDate={visitsByStaffAndDate}
+          leaveTypeByStaffDate={leaveTypeByStaffDate}
           onAddShift={openAddShift}
           onOpenDetail={setDetailShift}
         />

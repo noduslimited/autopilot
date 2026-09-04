@@ -29,6 +29,7 @@ export function DayView({
   isPast,
   shiftByStaffAndDate,
   visitsByStaffAndDate,
+  leaveTypeByStaffDate,
   onAddShift,
   onOpenDetail,
 }: {
@@ -37,6 +38,7 @@ export function DayView({
   isPast: boolean;
   shiftByStaffAndDate: Map<string, RotaShift>;
   visitsByStaffAndDate: Map<string, RotaVisit[]>;
+  leaveTypeByStaffDate: Record<string, "holiday" | "time_off">;
   onAddShift: (staffId?: string, date?: string) => void;
   onOpenDetail: (shift: RotaShift) => void;
 }) {
@@ -77,6 +79,10 @@ export function DayView({
                 ) : shift.shift_type === "sick_leave" ? (
                   <button type="button" onClick={() => onOpenDetail(shift)} className="rounded-[20px] bg-danger-red-light px-2.5 py-1 text-secondary font-medium text-danger-red">
                     Sick leave
+                  </button>
+                ) : shift.shift_type === "annual_leave" ? (
+                  <button type="button" onClick={() => onOpenDetail(shift)} className="rounded-[20px] bg-amber-light px-2.5 py-1 text-secondary font-medium text-amber-text">
+                    {leaveTypeByStaffDate[`${member.id}|${date}`] === "holiday" ? "Holiday" : "Time off"}
                   </button>
                 ) : (
                   <div className="relative h-8 rounded-[6px] bg-page-bg">
