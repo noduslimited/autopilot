@@ -1057,6 +1057,8 @@ export type Database = {
           end_time: string | null
           id: string
           org_id: string
+          recurrence: string
+          recurrence_group_id: string | null
           shift_date: string
           shift_type: string
           staff_id: string
@@ -1069,6 +1071,8 @@ export type Database = {
           end_time?: string | null
           id?: string
           org_id: string
+          recurrence?: string
+          recurrence_group_id?: string | null
           shift_date: string
           shift_type?: string
           staff_id: string
@@ -1081,6 +1085,8 @@ export type Database = {
           end_time?: string | null
           id?: string
           org_id?: string
+          recurrence?: string
+          recurrence_group_id?: string | null
           shift_date?: string
           shift_type?: string
           staff_id?: string
