@@ -7,7 +7,9 @@ import { createClient } from "@/lib/supabase/client";
 // (resetPasswordForEmail + the update-password accept flow) rather than
 // building a separate "enter your current password" change form — no
 // document specifies one, and this keeps a single password-reset code
-// path in the app instead of two.
+// path in the app instead of two. Shared between the family and carer
+// portals (moved here from app/family/profile/ when the carer profile
+// page — 2026-09-04 — needed the identical mechanism).
 export function ChangePasswordButton({ email }: { email: string }) {
   const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
 

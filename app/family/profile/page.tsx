@@ -3,7 +3,7 @@ import { getLinkedClientId, UNLINKED_ACCOUNT_MESSAGE } from "@/lib/family/getLin
 import { Header } from "@/components/layout/Header";
 import { ClientAvatar } from "@/components/clients/ClientAvatar";
 import { SignOutButton } from "@/components/auth/SignOutButton";
-import { ChangePasswordButton } from "./ChangePasswordButton";
+import { ChangePasswordButton } from "@/components/auth/ChangePasswordButton";
 
 // Source: Gokul, direct request 2026-09-02 — the Profile tab in the NOK
 // bottom nav previously went nowhere. Same "basic information" scope as

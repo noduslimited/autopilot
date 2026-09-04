@@ -37,7 +37,17 @@ function statusLabel(visit: ScheduleVisit): string {
   return `${visit.tasks_total} tasks`;
 }
 
-export function ScheduleClient({ visits, weekDays, selectedDate }: { visits: ScheduleVisit[]; weekDays: string[]; selectedDate: string }) {
+export function ScheduleClient({
+  visits,
+  weekDays,
+  selectedDate,
+  weekStartKey,
+}: {
+  visits: ScheduleVisit[];
+  weekDays: string[];
+  selectedDate: string;
+  weekStartKey: string;
+}) {
   const router = useRouter();
   const [swapOpen, setSwapOpen] = useState(false);
 
@@ -52,25 +62,28 @@ export function ScheduleClient({ visits, weekDays, selectedDate }: { visits: Sch
   });
 
   return (
-    <div className="px-4 py-4">
+    <div className="box-border w-full min-w-0 max-w-full overflow-x-hidden px-4 py-4">
       <PushNotificationPrompt />
 
       <p className="mb-2 text-body font-medium text-text-primary">
         {selectedLabel} · {selectedVisits.length} visit{selectedVisits.length === 1 ? "" : "s"}
       </p>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex w-full min-w-0 flex-col gap-2">
         {selectedVisits.map((visit) => (
           <button
             key={visit.id}
             type="button"
             onClick={() => router.push(`/visit/${visit.id}`)}
-            className={["w-full rounded-input border-l-4 border-y border-r border-border-default bg-card-bg p-3 text-left", BORDER_CLASSES[visit.status] ?? BORDER_CLASSES.scheduled].join(" ")}
+            className={[
+              "box-border w-full min-w-0 max-w-full overflow-hidden rounded-input border-l-4 border-y border-r border-border-default bg-card-bg p-3 text-left",
+              BORDER_CLASSES[visit.status] ?? BORDER_CLASSES.scheduled,
+            ].join(" ")}
           >
-            <p className="text-body font-medium text-text-primary">
+            <p className="truncate text-body font-medium text-text-primary">
               {visit.client.first_name} {visit.client.last_name}
             </p>
-            <p className="text-secondary text-text-secondary">
+            <p className="truncate text-secondary text-text-secondary">
               {timeRange(visit.scheduled_start, visit.scheduled_end)} · {statusLabel(visit)}
             </p>
           </button>
@@ -79,20 +92,20 @@ export function ScheduleClient({ visits, weekDays, selectedDate }: { visits: Sch
       </div>
 
       {laterDays.length > 0 ? (
-        <div className="mt-4 flex flex-col gap-1.5">
+        <div className="mt-4 flex w-full min-w-0 flex-col gap-1.5">
           {laterDays.map((day) => {
             const count = dayVisits(day).length;
             if (count === 0) return null;
             return (
               <Link
                 key={day}
-                href={`/schedule?date=${day}`}
-                className="flex items-center justify-between rounded-input border border-border-default bg-card-bg px-3 py-2.5"
+                href={`/schedule?week=${weekStartKey}&date=${day}`}
+                className="box-border flex w-full min-w-0 max-w-full items-center justify-between gap-2 overflow-hidden rounded-input border border-border-default bg-card-bg px-3 py-2.5"
               >
-                <span className="text-body text-text-primary">
+                <span className="truncate text-body text-text-primary">
                   {new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}
                 </span>
-                <span className="text-secondary text-text-secondary">
+                <span className="shrink-0 text-secondary text-text-secondary">
                   {count} visit{count === 1 ? "" : "s"} assigned
                 </span>
               </Link>

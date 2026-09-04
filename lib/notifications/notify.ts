@@ -16,7 +16,16 @@ export type NotificationType =
   | "training_expiry"
   | "dbs_expiry"
   | "invoice_overdue"
-  | "unassigned_visit";
+  | "unassigned_visit"
+  | "care_plan_updated"
+  | "message_from_care_team"
+  | "visit_wellbeing_concern"
+  | "shift_assigned"
+  | "shift_changed"
+  | "shift_cancelled"
+  | "shift_reminder"
+  | "shift_request_created"
+  | "shift_request_response";
 
 // Only 5 of the 7 types have a corresponding email toggle — Session 8's
 // Settings → Notifications page never built shift_swap/family_message

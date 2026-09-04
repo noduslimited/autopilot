@@ -1190,6 +1190,99 @@ export type Database = {
           },
         ]
       }
+      shift_requests: {
+        Row: {
+          actioned_at: string | null
+          actioned_by: string | null
+          category: string | null
+          created_at: string
+          date_from: string
+          date_to: string | null
+          id: string
+          notes: string | null
+          org_id: string
+          request_type: string
+          requested_at: string
+          shift_id: string | null
+          staff_id: string
+          status: string
+          swap_with_staff_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          actioned_at?: string | null
+          actioned_by?: string | null
+          category?: string | null
+          created_at?: string
+          date_from: string
+          date_to?: string | null
+          id?: string
+          notes?: string | null
+          org_id: string
+          request_type: string
+          requested_at?: string
+          shift_id?: string | null
+          staff_id: string
+          status?: string
+          swap_with_staff_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actioned_at?: string | null
+          actioned_by?: string | null
+          category?: string | null
+          created_at?: string
+          date_from?: string
+          date_to?: string | null
+          id?: string
+          notes?: string | null
+          org_id?: string
+          request_type?: string
+          requested_at?: string
+          shift_id?: string | null
+          staff_id?: string
+          status?: string
+          swap_with_staff_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_requests_actioned_by_fkey"
+            columns: ["actioned_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_requests_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "rota_shifts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_requests_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_requests_swap_with_staff_id_fkey"
+            columns: ["swap_with_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff: {
         Row: {
           contract_url: string | null
