@@ -52,7 +52,12 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const weekDayKeys = weekDays.map(toDateKey);
 
   const requestedDate = date && !Number.isNaN(Date.parse(date)) ? toDateKey(new Date(`${date}T00:00:00Z`)) : null;
-  const selectedKey = requestedDate && weekDayKeys.includes(requestedDate) ? requestedDate : weekDayKeys[0];
+  const todayKey = toDateKey(todayStart);
+  // No explicit ?date= (the common case — opening Schedule fresh from the
+  // bottom nav): default to today if it falls within the displayed week,
+  // not the week's first day — a carer opening this mid-week should land
+  // on today, not Monday.
+  const selectedKey = requestedDate && weekDayKeys.includes(requestedDate) ? requestedDate : weekDayKeys.includes(todayKey) ? todayKey : weekDayKeys[0];
 
   const [{ data: visitRows }, { data: shiftRows }] = await Promise.all([
     supabase

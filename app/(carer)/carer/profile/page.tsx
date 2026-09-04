@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Header } from "@/components/layout/Header";
 import { ClientAvatar } from "@/components/clients/ClientAvatar";
 import { SignOutButton } from "@/components/auth/SignOutButton";
@@ -55,6 +56,18 @@ export default async function CarerProfilePage() {
 
   if (!user) return null;
 
+  // The manager-name lookup can't go through the RLS-scoped client: a
+  // carer's `users` SELECT policy only ever allows reading their own row
+  // (see supabase/migrations/20260828121100_rls_policies.sql) — there is
+  // no policy letting a carer read a manager's row directly, so this
+  // query would silently return null under RLS (caught live: the
+  // Organisation card's Manager row simply never rendered). Uses the
+  // admin client instead, scoped explicitly to the carer's own org_id and
+  // reading only a name — the same narrow, read-only cross-user lookup
+  // pattern already used elsewhere in this app (e.g. invite-nok's
+  // resolve-the-inviter reads).
+  const admin = createAdminClient();
+
   const [{ data: staff }, { data: org }, { data: manager }, { data: trainingRecords }] = await Promise.all([
     supabase
       .from("staff")
@@ -62,7 +75,7 @@ export default async function CarerProfilePage() {
       .eq("id", authUser!.id)
       .maybeSingle(),
     supabase.from("organisations").select("name, address, phone, email").eq("id", user.org_id).single(),
-    supabase.from("users").select("first_name, last_name").eq("org_id", user.org_id).eq("role", "manager").order("created_at").limit(1).maybeSingle(),
+    admin.from("users").select("first_name, last_name").eq("org_id", user.org_id).eq("role", "manager").order("created_at").limit(1).maybeSingle(),
     supabase
       .from("training_records")
       .select("id, module_name, module_label, completed_date, expiry_date")
