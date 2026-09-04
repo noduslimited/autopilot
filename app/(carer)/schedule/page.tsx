@@ -155,7 +155,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         subtitle={`${carer!.first_name} ${carer!.last_name} · ${weekLabel}`}
         right={<CarerHeaderIcons userId={carer!.id} firstName={carer!.first_name} lastName={carer!.last_name} />}
       >
-        <div className="flex items-center gap-1">
+        <div className="flex w-full min-w-0 max-w-full items-center gap-1">
           <a
             href={canGoBack ? `/schedule?week=${prevWeekKey}` : undefined}
             aria-label="Previous week"
@@ -164,7 +164,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
           >
             <i className="ti ti-chevron-left text-[16px]" aria-hidden="true" />
           </a>
-          <div className="flex flex-1 gap-1.5 overflow-x-auto pb-1">
+          <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-1">
             {weekDays.map((d) => {
               const key = toDateKey(d);
               const isSelected = key === selectedKey;

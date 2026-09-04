@@ -45,7 +45,7 @@ export function Header({ title, subtitle, backHref, right, children }: HeaderPro
         {right ? <div className="flex shrink-0 items-center gap-3">{right}</div> : null}
       </div>
 
-      {children ? <div className="mt-3">{children}</div> : null}
+      {children ? <div className="mt-3 min-w-0 max-w-full overflow-hidden">{children}</div> : null}
     </header>
   );
 }
