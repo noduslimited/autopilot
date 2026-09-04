@@ -25,8 +25,17 @@ export function Toggle({ checked, onChange, disabled = false }: ToggleProps) {
     >
       <span
         className={[
-          "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform",
-          checked ? "translate-x-[22px]" : "translate-x-0.5",
+          // left-0 (not just a translate-x offset) anchors the circle to
+          // the track's own left edge explicitly — without it, an
+          // absolutely-positioned element with no left/right set falls
+          // back to its "static position" (where it would have sat in
+          // normal flow), which is undefined here and rendered
+          // differently across browsers, pushing the circle out past the
+          // track entirely on a real device. transition-transform then
+          // only ever needs to describe the slide distance, not the base
+          // position too.
+          "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform",
+          checked ? "translate-x-[20px]" : "translate-x-0",
         ].join(" ")}
       />
     </button>
