@@ -403,6 +403,17 @@ export function VisitDetailClient({
           type="button"
           onClick={async () => {
             await saveNotes(notes);
+            // "Pause" now has real meaning app-wide since items 2/3's
+            // rework (see MyDayClient.tsx's confirmPauseAndOpen): reverting
+            // to 'scheduled' frees the one_active_visit_per_carer slot.
+            // This button predates that rework (Session 9) and previously
+            // only navigated away while silently leaving the visit
+            // in_progress — a real inconsistency with the new pause
+            // semantics, found and fixed 2026-09-06 during item 3's own
+            // live verification.
+            const supabase = createClient();
+            await supabase.from("visits").update({ status: "scheduled" }).eq("id", visitId);
+            setStatus("scheduled");
             router.push("/my-day");
             router.refresh();
           }}
