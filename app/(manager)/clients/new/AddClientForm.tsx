@@ -486,12 +486,12 @@ export function AddClientForm({ staff }: { staff: StaffOption[] }) {
               Back
             </Button>
           ) : null}
-          <Button type="button" variant="secondary" disabled={submitting} onClick={handleSaveDraft}>
+          <Button type="button" variant="secondary" loading={submitting} onClick={handleSaveDraft}>
             Save as draft
           </Button>
           <div className="flex-1" />
-          <Button type="submit" disabled={submitting}>
-            {step === 4 ? (submitting ? "Adding client…" : "Add client") : "Continue"}
+          <Button type="submit" loading={step === 4 && submitting}>
+            {step === 4 ? "Add client" : "Continue"}
           </Button>
         </div>
       </form>

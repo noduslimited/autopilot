@@ -123,7 +123,7 @@ export function InvoicingDefaultsForm({ org }: { org: InvoicingOrg }) {
       {savedConfirmation ? <p className="mt-3 text-body text-success-green-text">Changes saved.</p> : null}
 
       <div className="mt-4 border-t border-border-default pt-4">
-        <Button onClick={handleSave} disabled={saving}>
+        <Button onClick={handleSave} loading={saving}>
           {saving ? "Saving…" : "Save changes"}
         </Button>
       </div>

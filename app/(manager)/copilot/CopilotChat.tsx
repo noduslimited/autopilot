@@ -411,7 +411,7 @@ function SaveToCarePlanModal({ text, entities, onClose }: { text: string; entiti
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="button" onClick={handleSave} disabled={saving || !clientId}>
+            <Button type="button" onClick={handleSave} loading={saving} disabled={!clientId}>
               {saving ? "Saving…" : "Save"}
             </Button>
           </div>

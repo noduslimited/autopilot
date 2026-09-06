@@ -117,7 +117,7 @@ export function StaffPageActions() {
               <Button type="button" variant="secondary" onClick={close}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={saving}>
+              <Button type="submit" loading={saving}>
                 {saving ? "Sending…" : "Send invitation"}
               </Button>
             </div>

@@ -127,7 +127,7 @@ export function TrainingLogForm({ staffId, orgId }: { staffId: string; orgId: st
         ) : null}
         {error ? <p className="text-body text-nhs-red">{error}</p> : null}
         <div className="flex justify-end">
-          <Button type="submit" disabled={saving}>
+          <Button type="submit" loading={saving}>
             {saving ? "Logging…" : "Log training"}
           </Button>
         </div>

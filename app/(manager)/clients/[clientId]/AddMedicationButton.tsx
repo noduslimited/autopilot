@@ -59,7 +59,7 @@ export function AddMedicationButton({ clientId, orgId }: { clientId: string; org
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" loading={saving}>
               {saving ? "Saving…" : "Save medication"}
             </Button>
           </div>

@@ -181,7 +181,7 @@ export function ReportsClient({
                   <Button variant="secondary" onClick={handleCopy}>
                     {copied ? "Copied" : "Share"}
                   </Button>
-                  <Button onClick={handleSaveToReports} disabled={saving}>
+                  <Button onClick={handleSaveToReports} loading={saving}>
                     {saving ? "Saving…" : savedConfirmation ? "Saved" : "Save to reports"}
                   </Button>
                 </div>

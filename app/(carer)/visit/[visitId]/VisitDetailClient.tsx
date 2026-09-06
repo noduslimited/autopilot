@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Textarea } from "@/components/ui/Input";
 import { AiDraftButton } from "@/components/ai/AiDraftButton";
 import { Modal, ConfirmDialog } from "@/components/ui/Modal";
+import { useToast } from "@/components/ui/Toast";
 import { createClient } from "@/lib/supabase/client";
 import { enqueueAction } from "@/lib/offline/queue";
 
@@ -66,6 +67,7 @@ export function VisitDetailClient({
   initialNotes,
 }: VisitDetailClientProps) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [tasks, setTasks] = useState(initialTasks);
   const [emarLog, setEmarLog] = useState<Record<string, EmarLogEntry>>(initialEmarLog);
   const [emarTaskId, setEmarTaskId] = useState<string | null>(null);
@@ -183,16 +185,30 @@ export function VisitDetailClient({
       return;
     }
 
+    // Perf pass, 2026-09-06: optimistic update — the outcome here is
+    // predictable (this is the carer's own task, on their own visit), so
+    // the UI flips to completed immediately rather than waiting on the
+    // round trip. Rolled back only on a genuine application-level error
+    // (the request reached the server and it said no) — a network
+    // failure mid-request still queues for offline replay exactly as
+    // before, which is itself a form of "don't roll back for
+    // connectivity problems."
+    const previousTasks = tasks;
+    const optimisticNext = tasks.map((t) => (t.id === taskId ? { ...t, completed: true } : t));
+    setTasks(optimisticNext);
+
     const supabase = createClient();
     try {
       const { error } = await supabase.from("visit_tasks").update({ completed: true, completed_at: completedAt, completed_by: carerId }).eq("id", taskId);
-      if (error) return;
-      const next = tasks.map((t) => (t.id === taskId ? { ...t, completed: true } : t));
-      setTasks(next);
-      void syncTasksCompleted(next);
+      if (error) {
+        setTasks(previousTasks);
+        showToast("Could not save that — please try again.", "error");
+        return;
+      }
+      void syncTasksCompleted(optimisticNext);
     } catch {
       await enqueueAction({ type: "complete_task", payload: { taskId, carerId }, createdAt: completedAt });
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, completed: true } : t)));
+      // Already applied optimistically above — nothing further to do.
     }
   }
 

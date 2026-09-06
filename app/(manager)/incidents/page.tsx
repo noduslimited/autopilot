@@ -14,18 +14,26 @@ export default async function IncidentsPage() {
   const supabase = await createClient();
   const admin = createAdminClient();
 
-  const { data: incidentRows } = await supabase
-    .from("incidents")
-    .select(
-      "id, incident_ref, incident_type, severity, description, status, created_at, signed_off_at, client_id, clients(first_name, last_name)",
-    )
-    .order("created_at", { ascending: false });
-
-  const {
+  // Perf fix, 2026-09-06: incidentRows/activeClients don't depend on the
+  // user lookup (RLS scopes both to the caller's own org already) and
+  // previously ran one-after-another — now genuinely parallel.
+  const [{ data: incidentRows }, {
     data: { user },
-  } = await supabase.auth.getUser();
-  const { data: managerRow } = await supabase.from("users").select("org_id").eq("id", user!.id).single();
+  }, { data: activeClients }] = await Promise.all([
+    supabase
+      .from("incidents")
+      .select(
+        "id, incident_ref, incident_type, severity, description, status, created_at, signed_off_at, client_id, clients(first_name, last_name)",
+      )
+      .order("created_at", { ascending: false }),
+    supabase.auth.getUser(),
+    supabase.from("clients").select("id, first_name, last_name").eq("status", "active").order("first_name"),
+  ]);
+
+  const { data: managerRow } = await supabase.from("users").select("org_id, organisations(status)").eq("id", user!.id).single();
   const orgId = managerRow!.org_id;
+  const org = Array.isArray(managerRow!.organisations) ? managerRow!.organisations[0] : managerRow!.organisations;
+  const orgStatus = org?.status;
 
   const rows = incidentRows ?? [];
 
@@ -40,22 +48,35 @@ export default async function IncidentsPage() {
         (1000 * 60 * 60 * 24)
       : null;
 
-  // AI Feature Spec 4.9: computed server-side at render time, only for
-  // incidents that qualify (2+ same-type in 30 days) — getIncidentInsight
-  // itself returns null immediately for non-qualifying incidents, so this
-  // is cheap for the common case.
+  // Perf fix, 2026-09-06: getIncidentInsight() used to run its own
+  // "2+ same-type incidents in 30 days" count query AND its own org-status
+  // check for every single row — a real N+1 that measured as this page's
+  // single biggest latency contributor. Both are computed once here, from
+  // data this page already fetched in the single query above, and passed
+  // in — getIncidentInsight now only hits the DB at all for incidents that
+  // actually qualify (a small minority), not for every row on the page.
+  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const incidents: IncidentListItem[] = await Promise.all(
     rows.map(async (r) => {
       const client = Array.isArray(r.clients) ? r.clients[0] : r.clients;
+      const patternCount = rows.filter(
+        (other) => other.client_id === r.client_id && other.incident_type === r.incident_type && new Date(other.created_at).getTime() >= thirtyDaysAgo,
+      ).length;
       const insight =
         r.status === "open"
-          ? await getIncidentInsight(supabase, admin, orgId, {
-              id: r.id,
-              client_id: r.client_id,
-              incident_type: r.incident_type,
-              description: r.description,
-              created_at: r.created_at,
-            })
+          ? await getIncidentInsight(
+              supabase,
+              admin,
+              orgId,
+              {
+                id: r.id,
+                client_id: r.client_id,
+                incident_type: r.incident_type,
+                description: r.description,
+                created_at: r.created_at,
+              },
+              { orgStatus, patternCount },
+            )
           : null;
 
       return {
@@ -71,8 +92,6 @@ export default async function IncidentsPage() {
       };
     }),
   );
-
-  const { data: activeClients } = await supabase.from("clients").select("id, first_name, last_name").eq("status", "active").order("first_name");
 
   return (
     <div className="p-5">

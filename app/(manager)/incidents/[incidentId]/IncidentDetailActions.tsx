@@ -80,7 +80,7 @@ export function IncidentDetailActions({
         />
         {status === "open" ? (
           <div className="mt-2 flex justify-end">
-            <Button variant="secondary" onClick={handleSaveNotes} disabled={savingNotes}>
+            <Button variant="secondary" onClick={handleSaveNotes} loading={savingNotes}>
               {savingNotes ? "Saving…" : "Save notes"}
             </Button>
           </div>

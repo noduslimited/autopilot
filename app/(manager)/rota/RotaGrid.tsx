@@ -706,7 +706,7 @@ export function RotaGrid({
           </div>
           <div className="mt-2 flex items-center gap-3">
             {aiSuggestion.suggestedStaffId ? (
-              <Button onClick={acceptSuggestion} disabled={aiApplying}>
+              <Button onClick={acceptSuggestion} loading={aiApplying}>
                 {aiApplying ? "Applying…" : "Accept suggestion"}
               </Button>
             ) : null}
@@ -966,7 +966,7 @@ export function RotaGrid({
             <Button type="button" variant="secondary" onClick={closeForm}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving} onClick={dateConflicts.length > 0 ? () => saveShift(true) : undefined}>
+            <Button type="submit" loading={saving} onClick={dateConflicts.length > 0 ? () => saveShift(true) : undefined}>
               {saving ? "Saving…" : dateConflicts.length > 0 ? "Save anyway" : "Save shift"}
             </Button>
           </div>

@@ -107,7 +107,7 @@ export function EditStaffDetailsButton({
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" loading={saving}>
               {saving ? "Saving…" : "Save changes"}
             </Button>
           </div>

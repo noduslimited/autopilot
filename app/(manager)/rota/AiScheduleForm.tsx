@@ -115,7 +115,7 @@ export function AiScheduleForm({
               placeholder="Describe the shift…"
               className="flex-1 rounded-input border border-ai-blue-border bg-card-bg px-3 py-[9px] text-body text-text-primary outline-none"
             />
-            <Button onClick={handleGenerate} disabled={loading || !prompt.trim()}>
+            <Button onClick={handleGenerate} loading={loading} disabled={!prompt.trim()}>
               {loading ? "Thinking…" : "Generate"}
             </Button>
           </div>
@@ -165,7 +165,7 @@ export function AiScheduleForm({
                 <Button variant="secondary" onClick={() => setProposals(null)}>
                   Discard
                 </Button>
-                <Button onClick={handleApply} disabled={applying || selected.size === 0}>
+                <Button onClick={handleApply} loading={applying} disabled={selected.size === 0}>
                   {applying ? "Adding…" : `Add ${selected.size} to rota`}
                 </Button>
               </div>

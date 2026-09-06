@@ -73,11 +73,19 @@ export async function notifyAndMaybeEmail(admin: SupabaseClient<Database>, { org
   const { data: recipients } = await admin.from("users").select("email, first_name").in("id", uniqueUserIds);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
-  for (const recipient of recipients ?? []) {
-    await sendEmail({
-      to: recipient.email,
-      subject: title,
-      html: `<p>Hi ${recipient.first_name},</p><p>${body}</p><p><a href="${appUrl}${link}">View in Autopilot</a></p>`,
-    });
-  }
+  // Found 2026-09-06 during the performance pass: this was a sequential
+  // await-in-loop, blocking the caller's whole API response (e.g. Report
+  // Incident's submit button) on N one-at-a-time Resend round trips. Every
+  // recipient's email is independent, so they run in parallel instead —
+  // real impact scales with org manager count, but even the common
+  // single-recipient case removes one avoidable serial hop.
+  await Promise.all(
+    (recipients ?? []).map((recipient) =>
+      sendEmail({
+        to: recipient.email,
+        subject: title,
+        html: `<p>Hi ${recipient.first_name},</p><p>${body}</p><p><a href="${appUrl}${link}">View in Autopilot</a></p>`,
+      }),
+    ),
+  );
 }

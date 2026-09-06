@@ -271,7 +271,7 @@ export function CreateInvoiceModal({
             <Button type="button" variant="secondary" onClick={close}>
               Cancel
             </Button>
-            <Button type="button" onClick={handleGenerate} disabled={saving}>
+            <Button type="button" onClick={handleGenerate} loading={saving}>
               {saving ? "Generating…" : "Generate invoice"}
             </Button>
           </div>

@@ -146,7 +146,7 @@ export function LogIncidentButton({ clients }: { clients: IncidentClientOption[]
             <Button type="button" variant="secondary" onClick={close}>
               Cancel
             </Button>
-            <Button type="submit" variant="danger" disabled={saving}>
+            <Button type="submit" variant="danger" loading={saving}>
               {saving ? "Logging…" : "Log incident"}
             </Button>
           </div>

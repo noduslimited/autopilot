@@ -302,7 +302,7 @@ export function CarePlanContent({
             <Button type="button" variant="secondary" onClick={() => setEditOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" loading={saving}>
               {saving ? "Saving…" : "Save changes"}
             </Button>
           </div>
@@ -321,7 +321,7 @@ export function CarePlanContent({
           <Button type="button" variant="secondary" onClick={() => setAiDraft(null)}>
             Dismiss
           </Button>
-          <Button type="button" onClick={handleSaveAiDraft} disabled={aiSaving}>
+          <Button type="button" onClick={handleSaveAiDraft} loading={aiSaving}>
             {aiSaving ? "Saving…" : "Save to care plan"}
           </Button>
         </div>

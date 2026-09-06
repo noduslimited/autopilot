@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/components/ui/Toast";
 
 // Source: Sessions.md Session 12 steps 5-7. Sessions.md's own "Must be
 // achieved" list places this in the manager sidebar ("In-app notification
@@ -37,6 +38,7 @@ function timeAgo(iso: string): string {
 
 export function NotificationBell({ userId, align = "left" }: { userId: string; align?: "left" | "right" }) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -86,22 +88,43 @@ export function NotificationBell({ userId, align = "left" }: { userId: string; a
 
   const unreadCount = items.filter((item) => !item.read).length;
 
-  async function markRead(item: NotificationItem) {
-    if (!item.read) {
-      const supabase = createClient();
-      await supabase.from("notifications").update({ read: true }).eq("id", item.id);
-      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, read: true } : i)));
-    }
+  // Perf pass, 2026-09-06: optimistic — closing the dropdown and
+  // navigating no longer wait on the DB round trip; only rolled back
+  // (with a toast) on a genuine error. Same pattern as
+  // MobileNotificationSheet's markRead/markAllRead.
+  function markRead(item: NotificationItem) {
     setOpen(false);
     if (item.link) router.push(item.link);
+    if (item.read) return;
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, read: true } : i)));
+    const supabase = createClient();
+    supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("id", item.id)
+      .then(({ error }) => {
+        if (error) {
+          setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, read: false } : i)));
+          showToast("Could not mark that as read.", "error");
+        }
+      });
   }
 
-  async function markAllRead() {
-    const supabase = createClient();
+  function markAllRead() {
     const unreadIds = items.filter((i) => !i.read).map((i) => i.id);
     if (unreadIds.length === 0) return;
-    await supabase.from("notifications").update({ read: true }).in("id", unreadIds);
     setItems((prev) => prev.map((i) => ({ ...i, read: true })));
+    const supabase = createClient();
+    supabase
+      .from("notifications")
+      .update({ read: true })
+      .in("id", unreadIds)
+      .then(({ error }) => {
+        if (error) {
+          setItems((prev) => prev.map((i) => (unreadIds.includes(i.id) ? { ...i, read: false } : i)));
+          showToast("Could not mark all as read.", "error");
+        }
+      });
   }
 
   return (

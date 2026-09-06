@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Toggle } from "@/components/ui/Toggle";
+import { useToast } from "@/components/ui/Toast";
 
 // Source: Gokul, direct request 2026-09-02. Same immediate-save toggle
 // pattern already established in Settings → Notifications
@@ -14,16 +15,22 @@ import { Toggle } from "@/components/ui/Toggle";
 // 20260911090000_nok_messaging_toggle.sql) — this toggle is the single
 // source of truth both layers read from.
 export function NokMessagingToggle({ clientId, initialEnabled }: { clientId: string; initialEnabled: boolean }) {
+  const { showToast } = useToast();
   const [enabled, setEnabled] = useState(initialEnabled);
   const [saving, setSaving] = useState(false);
 
   async function handleToggle() {
+    const previous = enabled;
     const next = !enabled;
     setEnabled(next);
     setSaving(true);
     const supabase = createClient();
-    await supabase.from("clients").update({ nok_messaging_enabled: next }).eq("id", clientId);
+    const { error } = await supabase.from("clients").update({ nok_messaging_enabled: next }).eq("id", clientId);
     setSaving(false);
+    if (error) {
+      setEnabled(previous);
+      showToast("Could not save that setting — please try again.", "error");
+    }
   }
 
   return (

@@ -186,7 +186,7 @@ export function OrganisationProfileForm({ org }: { org: OrgProfile }) {
 
       <div className="mt-4 flex items-center justify-between border-t border-border-default pt-4">
         <div className="flex gap-2">
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} loading={saving}>
             {saving ? "Saving…" : "Save changes"}
           </Button>
           <Button variant="secondary" onClick={handleCancel}>

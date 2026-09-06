@@ -257,7 +257,7 @@ export function StaffHoursClient({ staff }: { staff: StaffOption[] }) {
 
       {error ? <p className="text-body text-nhs-red">{error}</p> : null}
 
-      <Button onClick={generateReport} disabled={generating}>
+      <Button onClick={generateReport} loading={generating}>
         {generating ? "Generating…" : "Generate report"}
       </Button>
 

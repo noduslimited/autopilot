@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { Spinner } from "@/components/ui/Spinner";
 import { AuthLogo } from "../_components/AuthLogo";
 import { GoogleIcon } from "../_components/GoogleIcon";
 
@@ -34,6 +35,20 @@ function LoginForm() {
 
   const notice = searchParams.get("notice");
   const noticeMessage = notice ? NOTICES[notice] : null;
+
+  // Perf pass, 2026-09-06: speculatively warm the client Router Cache for
+  // all three portal home routes, since the role isn't known until
+  // sign-in resolves. Note this doesn't speed up the very first post-login
+  // hop itself — that's a server-side redirect from proxy.ts (role-based
+  // routing/trial-gating lives there, not here), not a client-side
+  // Link/router.push, so it doesn't consume this prefetch — but it does
+  // mean any of the three destinations is already warm for whatever
+  // client-side navigation happens next (e.g. clicking a sidebar item).
+  useEffect(() => {
+    router.prefetch("/dashboard");
+    router.prefetch("/my-day");
+    router.prefetch("/family/overview");
+  }, [router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -147,8 +162,9 @@ function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-btn bg-nhs-blue px-4 py-3 text-body font-medium text-white disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-btn bg-nhs-blue px-4 py-3 text-body font-medium text-white disabled:opacity-50"
         >
+          {loading ? <Spinner size={16} className="text-white" /> : null}
           {loading ? "Signing in…" : "Sign in"}
         </button>
       </form>

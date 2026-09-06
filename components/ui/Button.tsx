@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { Spinner } from "./Spinner";
 
 export type ButtonVariant = "primary" | "danger" | "secondary" | "accent";
 
@@ -6,6 +7,15 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   fullWidth?: boolean;
   icon?: ReactNode;
+  /**
+   * Perf pass, 2026-09-06: a single shared way to show "this click is being
+   * handled" immediately, rather than every call site hand-rolling its own
+   * "Saving…"-text-only pattern (which several already did, inconsistently
+   * — some disabled the button, some didn't, none showed a spinner). Forces
+   * disabled regardless of the `disabled` prop, so a caller can't
+   * accidentally leave a loading button clickable.
+   */
+  loading?: boolean;
 }
 
 // Source: Design System Document section 7.1
@@ -20,12 +30,17 @@ export function Button({
   variant = "primary",
   fullWidth = false,
   icon,
+  loading = false,
+  disabled,
   className = "",
   children,
   ...rest
 }: ButtonProps) {
+  const spinnerColor = variant === "primary" || variant === "danger" ? "text-white" : "text-nhs-blue";
   return (
     <button
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
       className={[
         "inline-flex items-center justify-center gap-1.5 rounded-btn font-medium",
         "disabled:opacity-50 disabled:cursor-not-allowed",
@@ -35,7 +50,7 @@ export function Button({
       ].join(" ")}
       {...rest}
     >
-      {icon}
+      {loading ? <Spinner size={14} className={spinnerColor} /> : icon}
       {children}
     </button>
   );

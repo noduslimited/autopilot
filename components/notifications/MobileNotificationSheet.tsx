@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/components/ui/Toast";
 
 // Source: Gokul, direct request 2026-09-06 — item 5 ("notifications
 // dropdown/panel... overflows or is cut off on mobile — fix so it's a
@@ -36,6 +37,7 @@ function timeAgo(iso: string): string {
 
 export function MobileNotificationSheet({ userId, open, onClose }: { userId: string; open: boolean; onClose: () => void }) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [items, setItems] = useState<MobileNotificationItem[]>([]);
 
   async function load() {
@@ -68,22 +70,45 @@ export function MobileNotificationSheet({ userId, open, onClose }: { userId: str
 
   const unreadCount = items.filter((item) => !item.read).length;
 
-  async function markRead(item: MobileNotificationItem) {
-    if (!item.read) {
-      const supabase = createClient();
-      await supabase.from("notifications").update({ read: true }).eq("id", item.id);
-      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, read: true } : i)));
-    }
+  // Perf pass, 2026-09-06: both of these used to await the DB round trip
+  // before closing the sheet / navigating — a real, user-visible delay on
+  // one of the most-clicked actions in the app. "Read" is a predictable,
+  // low-stakes outcome, so both now update immediately and only roll back
+  // (with a toast) on a genuine error — the sheet closing and navigating
+  // no longer wait on the network at all.
+  function markRead(item: MobileNotificationItem) {
     onClose();
     if (item.link) router.push(item.link);
+    if (item.read) return;
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, read: true } : i)));
+    const supabase = createClient();
+    supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("id", item.id)
+      .then(({ error }) => {
+        if (error) {
+          setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, read: false } : i)));
+          showToast("Could not mark that as read.", "error");
+        }
+      });
   }
 
-  async function markAllRead() {
-    const supabase = createClient();
+  function markAllRead() {
     const unreadIds = items.filter((i) => !i.read).map((i) => i.id);
     if (unreadIds.length === 0) return;
-    await supabase.from("notifications").update({ read: true }).in("id", unreadIds);
     setItems((prev) => prev.map((i) => ({ ...i, read: true })));
+    const supabase = createClient();
+    supabase
+      .from("notifications")
+      .update({ read: true })
+      .in("id", unreadIds)
+      .then(({ error }) => {
+        if (error) {
+          setItems((prev) => prev.map((i) => (unreadIds.includes(i.id) ? { ...i, read: false } : i)));
+          showToast("Could not mark all as read.", "error");
+        }
+      });
   }
 
   return (

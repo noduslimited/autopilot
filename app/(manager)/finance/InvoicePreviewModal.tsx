@@ -256,11 +256,11 @@ export function InvoicePreviewModal({
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="button" variant={orgSettings.sendViaApp ? "secondary" : "primary"} onClick={handleDownloadPdf} disabled={downloading}>
+            <Button type="button" variant={orgSettings.sendViaApp ? "secondary" : "primary"} onClick={handleDownloadPdf} loading={downloading}>
               {downloading ? "Downloading…" : "Download PDF"}
             </Button>
             {orgSettings.sendViaApp ? (
-              <Button type="button" onClick={handleSend} disabled={sending}>
+              <Button type="button" onClick={handleSend} loading={sending}>
                 {sending ? "Sending…" : "Send invoice"}
               </Button>
             ) : null}

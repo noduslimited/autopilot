@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Toggle } from "@/components/ui/Toggle";
+import { useToast } from "@/components/ui/Toast";
 
 const TOGGLES: { key: string; label: string }[] = [
   { key: "unassigned_visit_alerts", label: "Unassigned visit alerts" },
@@ -63,6 +64,7 @@ function NotificationPermissionBanner() {
 // the mockup's plain on/off switches with no adjacent save button for
 // this specific section.
 export function NotificationsForm({ orgId, initialSettings }: { orgId: string; initialSettings: Record<string, boolean> }) {
+  const { showToast } = useToast();
   const [settings, setSettings] = useState<Record<string, boolean>>(() => {
     const defaults: Record<string, boolean> = {};
     for (const t of TOGGLES) defaults[t.key] = initialSettings[t.key] ?? true;
@@ -70,13 +72,22 @@ export function NotificationsForm({ orgId, initialSettings }: { orgId: string; i
   });
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
+  // Perf pass, 2026-09-06: already updated the switch immediately, but had
+  // no rollback on a genuine save failure — the toggle would silently keep
+  // showing the new state even if the write never actually happened.
+  // Completing the optimistic-update contract: roll back and toast on error.
   async function handleToggle(key: string) {
+    const previous = settings;
     const next = { ...settings, [key]: !settings[key] };
     setSettings(next);
     setSavingKey(key);
     const supabase = createClient();
-    await supabase.from("organisations").update({ notification_settings: next }).eq("id", orgId);
+    const { error } = await supabase.from("organisations").update({ notification_settings: next }).eq("id", orgId);
     setSavingKey(null);
+    if (error) {
+      setSettings(previous);
+      showToast("Could not save that setting — please try again.", "error");
+    }
   }
 
   return (

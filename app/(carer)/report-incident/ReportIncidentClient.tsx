@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/Input";
 import { AiDraftButton } from "@/components/ai/AiDraftButton";
+import { Spinner } from "@/components/ui/Spinner";
 import { createClient } from "@/lib/supabase/client";
 
 // Source: PRD section 5.5 (Report Incident)
@@ -345,8 +346,9 @@ export function ReportIncidentClient({
           type="button"
           disabled={submitting}
           onClick={handleSubmit}
-          className="w-full rounded-btn bg-nhs-red py-[11px] text-[14px] font-medium text-white disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-btn bg-nhs-red py-[11px] text-[14px] font-medium text-white disabled:opacity-50"
         >
+          {submitting ? <Spinner size={14} className="text-white" /> : null}
           {submitting ? "Submitting…" : "Submit incident report"}
         </button>
         <p className="mt-2 text-center text-secondary text-text-secondary">Your manager will be notified immediately</p>
