@@ -109,10 +109,19 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
       .or(`date_to.gte.${toDateKey(weekStart)},date_to.is.null`),
   ]);
 
-  const visits: ScheduleVisit[] = (visitRows ?? []).map((v) => {
-    const client = Array.isArray(v.client) ? v.client[0] : v.client;
-    return { ...v, client } as ScheduleVisit;
-  });
+  // Filters out (rather than crashing on) a visit whose embedded client
+  // came back null — belt-and-braces on top of the RLS fix
+  // (20260915090000) that addresses the real cause: a carer covering a
+  // reassigned visit for a client that isn't their own should always be
+  // able to see it, but this guards against any other future gap in
+  // that same class of RLS assumption instead of taking down the whole
+  // page again.
+  const visits: ScheduleVisit[] = (visitRows ?? [])
+    .map((v) => {
+      const client = Array.isArray(v.client) ? v.client[0] : v.client;
+      return client ? ({ ...v, client } as ScheduleVisit) : null;
+    })
+    .filter((v): v is ScheduleVisit => v !== null);
 
   const myShifts: MyShiftOption[] = myShiftRows ?? [];
   const colleagues: ColleagueOption[] = (colleagueRows ?? []).map((row) => {

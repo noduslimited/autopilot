@@ -39,10 +39,16 @@ export default async function MyDayPage() {
   // Supabase's embedded-relation typing can return either a single object
   // or an array depending on how it infers the FK's cardinality — normalise
   // defensively, same pattern as Session 8's staff/users export join.
-  const typedVisits: MyDayVisit[] = (visits ?? []).map((visit) => {
-    const client = Array.isArray(visit.client) ? visit.client[0] : visit.client;
-    return { ...visit, client } as MyDayVisit;
-  });
+  // Also filters out (rather than crashing on) a visit whose embedded
+  // client came back null — belt-and-braces on top of the RLS fix
+  // (20260915090000) for a carer covering a reassigned visit whose
+  // client isn't their own.
+  const typedVisits: MyDayVisit[] = (visits ?? [])
+    .map((visit) => {
+      const client = Array.isArray(visit.client) ? visit.client[0] : visit.client;
+      return client ? ({ ...visit, client } as MyDayVisit) : null;
+    })
+    .filter((v): v is MyDayVisit => v !== null);
 
   const total = typedVisits.length;
   const done = typedVisits.filter((v) => v.status === "completed").length;

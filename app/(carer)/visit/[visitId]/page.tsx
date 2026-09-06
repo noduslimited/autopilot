@@ -36,7 +36,13 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ vi
 
   if (!visit) notFound();
 
-  const client = (Array.isArray(visit.client) ? visit.client[0] : visit.client) as CriticalBadgesClient & {
+  const rawClient = Array.isArray(visit.client) ? visit.client[0] : visit.client;
+  // Belt-and-braces on top of the RLS fix (20260915090000) for a carer
+  // covering a reassigned visit whose client isn't their own — a null
+  // embedded client here would otherwise crash the whole page rendering
+  // client.first_name below.
+  if (!rawClient) notFound();
+  const client = rawClient as CriticalBadgesClient & {
     id: string;
     first_name: string;
     last_name: string;
