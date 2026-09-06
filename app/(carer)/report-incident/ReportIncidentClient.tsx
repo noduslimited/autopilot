@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/Input";
 import { AiDraftButton } from "@/components/ai/AiDraftButton";
+import { createClient } from "@/lib/supabase/client";
 
 // Source: PRD section 5.5 (Report Incident)
 
@@ -16,6 +17,13 @@ export interface IncidentClientOption {
 interface CurrentVisit {
   visitId: string;
   clientId: string;
+}
+
+const MAX_PHOTOS = 3;
+
+interface PendingPhoto {
+  file: File;
+  previewUrl: string;
 }
 
 const INCIDENT_TYPES: Array<{ value: string; label: string; icon: string }> = [
@@ -31,8 +39,19 @@ const SEVERITIES: Array<{ value: string; label: string; activeClass: string }> =
   { value: "high", label: "High", activeClass: "border-nhs-red bg-[#FDECEA] text-danger-red" },
 ];
 
-export function ReportIncidentClient({ clients, currentVisit }: { clients: IncidentClientOption[]; currentVisit: CurrentVisit | null }) {
+export function ReportIncidentClient({
+  clients,
+  currentVisit,
+  orgId,
+  carerId,
+}: {
+  clients: IncidentClientOption[];
+  currentVisit: CurrentVisit | null;
+  orgId: string;
+  carerId: string;
+}) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [clientId, setClientId] = useState(currentVisit?.clientId ?? "");
   const [incidentType, setIncidentType] = useState<string | null>(null);
   const [severity, setSeverity] = useState<string | null>(null);
@@ -41,12 +60,40 @@ export function ReportIncidentClient({ clients, currentVisit }: { clients: Incid
   const [gpNotes, setGpNotes] = useState("");
   const [drafting, setDrafting] = useState(false);
   const [draftUnavailable, setDraftUnavailable] = useState(false);
+  const [photos, setPhotos] = useState<PendingPhoto[]>([]);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<string | null>(null);
 
   const selectedClient = clients.find((c) => c.id === clientId);
   const isCurrentVisit = currentVisit?.clientId === clientId;
+
+  function handlePhotoSelect(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (files.length === 0) return;
+    setPhotoError(null);
+    setPhotos((current) => {
+      const room = MAX_PHOTOS - current.length;
+      if (room <= 0) {
+        setPhotoError(`You can attach up to ${MAX_PHOTOS} photos.`);
+        return current;
+      }
+      const accepted = files.slice(0, room);
+      if (files.length > room) setPhotoError(`You can attach up to ${MAX_PHOTOS} photos.`);
+      const next = accepted.map((file) => ({ file, previewUrl: URL.createObjectURL(file) }));
+      return [...current, ...next];
+    });
+  }
+
+  function removePhoto(index: number) {
+    setPhotos((current) => {
+      const target = current[index];
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return current.filter((_, i) => i !== index);
+    });
+  }
 
   async function draftDescription() {
     if (!clientId || !incidentType || !severity) {
@@ -77,6 +124,24 @@ export function ReportIncidentClient({ clients, currentVisit }: { clients: Incid
     }
     setSubmitting(true);
     setError(null);
+
+    let photoUrls: string[] = [];
+    if (photos.length > 0) {
+      const supabase = createClient();
+      const uploadedPaths: string[] = [];
+      for (const photo of photos) {
+        const path = `${orgId}/${carerId}/${Date.now()}-${photo.file.name}`;
+        const { error: uploadError } = await supabase.storage.from("incident-photos").upload(path, photo.file);
+        if (uploadError) {
+          setSubmitting(false);
+          setError("Could not upload one of the photos. Please try again.");
+          return;
+        }
+        uploadedPaths.push(path);
+      }
+      photoUrls = uploadedPaths;
+    }
+
     const response = await fetch("/api/report-incident", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -88,6 +153,7 @@ export function ReportIncidentClient({ clients, currentVisit }: { clients: Incid
         description: description.trim(),
         gpContacted,
         gpNotes: gpContacted ? gpNotes.trim() || null : null,
+        photoUrls,
       }),
     }).catch(() => null);
     setSubmitting(false);
@@ -203,6 +269,47 @@ export function ReportIncidentClient({ clients, currentVisit }: { clients: Incid
               onClick={draftDescription}
             />
           </div>
+        </div>
+
+        <div className="mb-3.5">
+          <p className="mb-1 text-label text-text-secondary">Attach a photo (optional)</p>
+          <div className="flex flex-wrap gap-2">
+            {photos.map((photo, index) => (
+              <div key={photo.previewUrl} className="relative h-16 w-16 shrink-0 overflow-hidden rounded-input border border-border-default">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={photo.previewUrl} alt={`Attached photo ${index + 1}`} className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removePhoto(index)}
+                  aria-label="Remove photo"
+                  className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white"
+                >
+                  <i className="ti ti-x text-[12px]" aria-hidden="true" />
+                </button>
+              </div>
+            ))}
+            {photos.length < MAX_PHOTOS ? (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-16 w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-input border border-dashed border-border-default text-text-secondary"
+              >
+                <i className="ti ti-camera text-[18px]" aria-hidden="true" />
+                <span className="text-[10px]">Add</span>
+              </button>
+            ) : null}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            multiple
+            onChange={handlePhotoSelect}
+            className="hidden"
+          />
+          <p className="mt-1 text-tiny text-text-secondary">Up to {MAX_PHOTOS} photos.</p>
+          {photoError ? <p className="mt-1 text-secondary text-nhs-red">{photoError}</p> : null}
         </div>
 
         <div className="mb-3.5">

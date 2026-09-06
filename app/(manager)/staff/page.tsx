@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { StaffPageActions } from "./StaffPageActions";
 import { StaffListClient, type StaffListItem } from "./StaffListClient";
@@ -89,7 +90,16 @@ export default async function StaffPage() {
             {total} active · {onSickLeave} on sick leave · {trainingOverdueCount} training overdue
           </p>
         </div>
-        <StaffPageActions />
+        <div className="flex gap-2">
+          <Link
+            href="/staff/hours"
+            className="inline-flex items-center gap-1.5 rounded-btn border border-border-default bg-card-bg px-3 py-2 text-[13px] font-medium text-text-primary"
+          >
+            <i className="ti ti-clock-hour-4 text-[15px]" aria-hidden="true" />
+            Staff hours
+          </Link>
+          <StaffPageActions />
+        </div>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">

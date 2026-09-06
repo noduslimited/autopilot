@@ -40,7 +40,7 @@ export default async function IncidentDetailPage({
   const { data: incident } = await supabase
     .from("incidents")
     .select(
-      "id, org_id, incident_ref, incident_type, severity, description, gp_contacted, gp_notes, status, manager_notes, signed_off_at, created_at, client_id, clients(id, first_name, last_name), reported_by, reporter:reported_by(first_name, last_name), signed_off_by, signer:signed_off_by(first_name, last_name)",
+      "id, org_id, incident_ref, incident_type, severity, description, gp_contacted, gp_notes, status, manager_notes, signed_off_at, created_at, client_id, clients(id, first_name, last_name), reported_by, reporter:reported_by(first_name, last_name), signed_off_by, signer:signed_off_by(first_name, last_name), photo_urls",
     )
     .eq("id", incidentId)
     .single();
@@ -92,6 +92,13 @@ export default async function IncidentDetailPage({
   });
 
   const severity = SEVERITY_BADGE[incident.severity] ?? SEVERITY_BADGE.low;
+
+  const photoUrls = await Promise.all(
+    (incident.photo_urls ?? []).map(async (path) => {
+      const { data: signed } = await supabase.storage.from("incident-photos").createSignedUrl(path, 300);
+      return signed?.signedUrl ?? null;
+    }),
+  ).then((urls) => urls.filter((url): url is string => !!url));
 
   return (
     <div className="p-5">
@@ -178,6 +185,25 @@ export default async function IncidentDetailPage({
               <i className="ti ti-sparkles mt-0.5 shrink-0 text-[14px] text-nhs-blue" aria-hidden="true" />
               {insight}
             </p>
+          </div>
+        ) : null}
+        {photoUrls.length > 0 ? (
+          <div className="mt-3">
+            <p className="mb-1.5 text-label text-text-secondary">Photos</p>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {photoUrls.map((url, index) => (
+                <a
+                  key={url}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block aspect-square overflow-hidden rounded-input border border-border-default"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt={`Incident photo ${index + 1}`} className="h-full w-full object-cover" />
+                </a>
+              ))}
+            </div>
           </div>
         ) : null}
       </div>

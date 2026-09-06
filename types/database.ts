@@ -550,6 +550,7 @@ export type Database = {
           incident_type: string
           manager_notes: string | null
           org_id: string
+          photo_urls: string[] | null
           reported_by: string
           severity: string
           signed_off_at: string | null
@@ -569,6 +570,7 @@ export type Database = {
           incident_type: string
           manager_notes?: string | null
           org_id: string
+          photo_urls?: string[] | null
           reported_by: string
           severity: string
           signed_off_at?: string | null
@@ -588,6 +590,7 @@ export type Database = {
           incident_type?: string
           manager_notes?: string | null
           org_id?: string
+          photo_urls?: string[] | null
           reported_by?: string
           severity?: string
           signed_off_at?: string | null

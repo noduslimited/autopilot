@@ -19,6 +19,7 @@ interface ReportIncidentBody {
   description: string;
   gpContacted: boolean;
   gpNotes: string | null;
+  photoUrls: string[];
 }
 
 function isReportIncidentBody(value: unknown): value is ReportIncidentBody {
@@ -31,7 +32,8 @@ function isReportIncidentBody(value: unknown): value is ReportIncidentBody {
     typeof body.severity === "string" &&
     typeof body.description === "string" &&
     typeof body.gpContacted === "boolean" &&
-    (body.gpNotes === null || typeof body.gpNotes === "string")
+    (body.gpNotes === null || typeof body.gpNotes === "string") &&
+    (body.photoUrls === undefined || (Array.isArray(body.photoUrls) && body.photoUrls.every((url) => typeof url === "string")))
   );
 }
 
@@ -57,6 +59,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Client not found." }, { status: 404 });
   }
 
+  // Defence in depth on top of the incident-photos bucket's own RLS: only
+  // accept photo paths that genuinely live under this carer's own org
+  // folder (storage path convention: {org_id}/{carer_id}/{filename}).
+  const photoUrls = (body.photoUrls ?? []).filter((url) => url.startsWith(`${carer.org_id}/`)).slice(0, 3);
+
   const { data: incident, error: insertError } = await supabase
     .from("incidents")
     .insert({
@@ -71,6 +78,7 @@ export async function POST(request: Request) {
       gp_contacted: body.gpContacted,
       gp_notes: body.gpContacted ? body.gpNotes : null,
       status: "open",
+      photo_urls: photoUrls.length > 0 ? photoUrls : null,
     })
     .select("id, incident_ref")
     .single();

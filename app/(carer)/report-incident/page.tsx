@@ -21,6 +21,8 @@ export default async function ReportIncidentPage() {
     <ReportIncidentClient
       clients={clients}
       currentVisit={activeVisit ? { visitId: activeVisit.id, clientId: activeVisit.client_id } : null}
+      orgId={carer!.org_id}
+      carerId={carer!.id}
     />
   );
 }
