@@ -55,7 +55,7 @@ export default async function MyDayPage() {
   const active = typedVisits.filter((v) => v.status === "in_progress").length;
   const upcoming = typedVisits.filter((v) => v.status === "scheduled").length;
 
-  const dateLabel = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const dateLabel = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" });
 
   return (
     <div>

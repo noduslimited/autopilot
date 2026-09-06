@@ -10,8 +10,9 @@ import { VisitDetailClient, type VisitTaskItem, type MedicationItem, type EmarLo
 
 // Source: PRD section 5.3 (Visit Detail)
 
+// See MyDayClient.tsx's timeRange() for why timeZone is pinned explicitly.
 function timeRange(start: string, end: string): string {
-  const fmt = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const fmt = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
   return `${fmt(start)} – ${fmt(end)}`;
 }
 

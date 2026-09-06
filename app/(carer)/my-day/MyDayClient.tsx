@@ -28,8 +28,18 @@ export interface MyDayVisit {
   client: CriticalBadgesClient & { id: string; first_name: string; last_name: string; address: string };
 }
 
+// Explicit timeZone (not just "en-GB" locale) matters here: this is a
+// client component, so it renders once on the server (Netlify, UTC) and
+// again on hydration in the carer's own browser (Europe/London). Without
+// pinning the zone, those two renders disagree by an hour for roughly
+// seven months of the year (BST) — a genuine, previously-undiscovered
+// hydration-mismatch bug found live 2026-09-06 while verifying items 2/3,
+// not a pre-existing known issue. Fixed here and at every other call site
+// this session's rework touches; the same bare-toLocaleTimeString pattern
+// exists in ~49 other files app-wide and is flagged in the Post-Launch
+// Checklist as a systemic issue needing its own dedicated pass.
 function timeRange(start: string, end: string): string {
-  const fmt = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const fmt = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
   return `${fmt(start)} – ${fmt(end)}`;
 }
 
@@ -154,7 +164,7 @@ export function MyDayClient({ visits }: { visits: MyDayVisit[] }) {
                 <div className="flex items-start justify-between">
                   <p className="text-secondary text-text-secondary">{timeRange(visit.scheduled_start, visit.scheduled_end)}</p>
                   <span className="rounded-badge bg-page-bg px-[7px] py-[2px] text-[10px] font-medium text-text-secondary">
-                    {new Date(visit.scheduled_start).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                    {new Date(visit.scheduled_start).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" })}
                   </span>
                 </div>
                 <button type="button" onClick={() => openVisit(visit)} disabled={switching} className="block w-full text-left">
