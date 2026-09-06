@@ -9,7 +9,7 @@ import { ClientAvatar } from "@/components/clients/ClientAvatar";
 import { CriticalBadges, type CriticalBadgesClient } from "@/components/clients/CriticalBadges";
 import { Badge } from "@/components/ui/Badge";
 import { SignOutButton } from "@/components/auth/SignOutButton";
-import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { MobileNotificationBell } from "@/components/notifications/MobileNotificationBell";
 
 // Source: Gokul, direct request 2026-09-02. The NOK relationship field
 // describes the family member's relationship TO the client ("Jennifer is
@@ -150,7 +150,7 @@ export default async function FamilyOverviewPage() {
         subtitle={relationshipSubtitle(nokLink?.relationship, CARE_TYPE_LABELS[client.care_type] ?? client.care_type)}
         right={
           <>
-            <NotificationBell userId={authUser!.id} align="right" />
+            <MobileNotificationBell userId={authUser!.id} className="text-white/80" />
             <ClientAvatar firstName={client.first_name} lastName={client.last_name} size="md" />
           </>
         }

@@ -4,14 +4,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-// Source: Gokul, direct request 2026-09-04 — carer mobile portal item 1.
-// A full-width bottom sheet rather than the manager NotificationBell's
-// anchored dropdown: a 340px dropdown risks overflowing a real ~390px
-// phone viewport, and every other carer-facing panel in this app already
-// uses the fixed-bottom-sheet pattern (see the old ShiftSwapForm this
-// session replaces, and the new request forms it's replaced with) —
-// this keeps the bell consistent with that, not the desktop manager UI.
-export interface CarerNotificationItem {
+// Source: Gokul, direct request 2026-09-06 — item 5 ("notifications
+// dropdown/panel... overflows or is cut off on mobile — fix so it's a
+// bottom sheet, ~70% of screen height, drag handle, scrolls internally,
+// tap-outside or Close to dismiss"). Shared between the carer and family
+// (NOK) portals — both had the identical problem: family used the
+// manager sidebar's own 340px-wide anchored dropdown (NotificationBell),
+// which risks overflowing a real ~390px phone; the carer's own bottom
+// sheet (built in an earlier session) was already close to this spec but
+// had no drag handle. One shared component now for both.
+export interface MobileNotificationItem {
   id: string;
   type: string;
   title: string;
@@ -32,9 +34,9 @@ function timeAgo(iso: string): string {
   return `${days}d ago`;
 }
 
-export function CarerNotificationSheet({ userId, open, onClose }: { userId: string; open: boolean; onClose: () => void }) {
+export function MobileNotificationSheet({ userId, open, onClose }: { userId: string; open: boolean; onClose: () => void }) {
   const router = useRouter();
-  const [items, setItems] = useState<CarerNotificationItem[]>([]);
+  const [items, setItems] = useState<MobileNotificationItem[]>([]);
 
   async function load() {
     const supabase = createClient();
@@ -51,7 +53,7 @@ export function CarerNotificationSheet({ userId, open, onClose }: { userId: stri
     void load();
     const supabase = createClient();
     const channel = supabase
-      .channel(`carer-notifications-${userId}`)
+      .channel(`mobile-notifications-${userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, () => {
         void load();
       })
@@ -66,7 +68,7 @@ export function CarerNotificationSheet({ userId, open, onClose }: { userId: stri
 
   const unreadCount = items.filter((item) => !item.read).length;
 
-  async function markRead(item: CarerNotificationItem) {
+  async function markRead(item: MobileNotificationItem) {
     if (!item.read) {
       const supabase = createClient();
       await supabase.from("notifications").update({ read: true }).eq("id", item.id);
@@ -87,10 +89,13 @@ export function CarerNotificationSheet({ userId, open, onClose }: { userId: stri
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={onClose}>
       <div
-        className="flex max-h-[75vh] w-full max-w-[480px] flex-col rounded-t-card bg-card-bg"
+        className="box-border flex h-[70vh] w-full max-w-[480px] flex-col overflow-hidden rounded-t-card bg-card-bg"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-border-default px-4 py-3">
+        <div className="flex shrink-0 justify-center pt-2.5 pb-1">
+          <span className="h-1 w-10 rounded-full bg-border-default" aria-hidden="true" />
+        </div>
+        <div className="flex shrink-0 items-center justify-between border-b border-border-default px-4 py-3">
           <p className="text-body font-medium text-text-primary">Notifications</p>
           {unreadCount > 0 ? (
             <button type="button" onClick={markAllRead} className="text-secondary text-nhs-blue">
@@ -98,7 +103,7 @@ export function CarerNotificationSheet({ userId, open, onClose }: { userId: stri
             </button>
           ) : null}
         </div>
-        <div className="overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {items.length === 0 ? (
             <p className="px-4 py-8 text-center text-body text-text-secondary">No notifications yet.</p>
           ) : (
@@ -108,20 +113,20 @@ export function CarerNotificationSheet({ userId, open, onClose }: { userId: stri
                   key={item.id}
                   type="button"
                   onClick={() => markRead(item)}
-                  className={["px-4 py-3 text-left", item.read ? "bg-card-bg" : "bg-ai-blue-light"].join(" ")}
+                  className={["w-full px-4 py-3 text-left", item.read ? "bg-card-bg" : "bg-ai-blue-light"].join(" ")}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-body font-medium text-text-primary">{item.title}</p>
                     {!item.read ? <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-nhs-red" /> : null}
                   </div>
-                  <p className="mt-0.5 text-secondary text-text-secondary">{item.body}</p>
+                  <p className="mt-0.5 whitespace-pre-line break-words text-secondary text-text-secondary">{item.body}</p>
                   <p className="mt-0.5 text-tiny text-text-secondary">{timeAgo(item.created_at)}</p>
                 </button>
               ))}
             </div>
           )}
         </div>
-        <button type="button" onClick={onClose} className="border-t border-border-default py-3 text-center text-body text-text-secondary">
+        <button type="button" onClick={onClose} className="shrink-0 border-t border-border-default py-3 text-center text-body text-text-secondary">
           Close
         </button>
       </div>

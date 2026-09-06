@@ -99,6 +99,7 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ vi
         carerId={carer!.id}
         orgId={carer!.org_id}
         clientFirstName={client.first_name}
+        initialStatus={visit.status}
         initialTasks={tasks}
         medications={medications}
         initialEmarLog={existingEmarLog}

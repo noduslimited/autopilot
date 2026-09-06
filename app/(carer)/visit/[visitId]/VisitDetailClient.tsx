@@ -46,6 +46,7 @@ interface VisitDetailClientProps {
   carerId: string;
   orgId: string;
   clientFirstName: string;
+  initialStatus: string;
   initialTasks: VisitTaskItem[];
   medications: MedicationItem[];
   initialEmarLog: Record<string, EmarLogEntry>;
@@ -58,6 +59,7 @@ export function VisitDetailClient({
   carerId,
   orgId,
   clientFirstName,
+  initialStatus,
   initialTasks,
   medications,
   initialEmarLog,
@@ -79,8 +81,66 @@ export function VisitDetailClient({
   const [completing, setCompleting] = useState(false);
   const [wellbeingRating, setWellbeingRating] = useState<"good" | "fair" | "poor" | null>(null);
 
+  // Source: Gokul, direct request 2026-09-06 (item 3) — opening a visit
+  // used to immediately mark it in_progress. Now the visit's real status
+  // IS the mode: 'scheduled' (or anything other than in_progress/
+  // completed) is view-only until the carer explicitly taps "Start
+  // visit"; 'in_progress' is fully interactive. Local state so starting
+  // the visit updates the UI immediately without a full page reload.
+  const [status, setStatus] = useState(initialStatus);
+  const isActive = status === "in_progress";
+  const isCompleted = status === "completed";
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
+  const [conflictVisit, setConflictVisit] = useState<{ id: string; clientFirstName: string } | null>(null);
+
   const allTasksDone = tasks.length > 0 && tasks.every((t) => t.completed);
   const firstIncompleteIndex = tasks.findIndex((t) => !t.completed);
+
+  async function startVisit(pauseFirstId?: string) {
+    setStarting(true);
+    setStartError(null);
+    const supabase = createClient();
+
+    if (pauseFirstId) {
+      const { error: pauseError } = await supabase.from("visits").update({ status: "scheduled" }).eq("id", pauseFirstId);
+      if (pauseError) {
+        setStarting(false);
+        setStartError("Could not pause the other visit. Please try again.");
+        return;
+      }
+    } else {
+      // Live check, not just trusting whatever this page loaded with —
+      // another visit could have been started elsewhere (another device/
+      // tab) since this page was opened. one_active_visit_per_carer (the
+      // DB's own partial unique index) is still the authoritative guard
+      // either way; this is what turns that into a friendly choice
+      // instead of a raw constraint-violation error.
+      const { data: activeElsewhere } = await supabase
+        .from("visits")
+        .select("id, client:clients(first_name)")
+        .eq("assigned_carer_id", carerId)
+        .eq("status", "in_progress")
+        .neq("id", visitId)
+        .maybeSingle();
+      if (activeElsewhere) {
+        const activeClient = Array.isArray(activeElsewhere.client) ? activeElsewhere.client[0] : activeElsewhere.client;
+        setStarting(false);
+        setConflictVisit({ id: activeElsewhere.id, clientFirstName: activeClient?.first_name ?? "another client" });
+        return;
+      }
+    }
+
+    const { error } = await supabase.from("visits").update({ status: "in_progress", check_in_time: new Date().toISOString() }).eq("id", visitId);
+    setStarting(false);
+    setConflictVisit(null);
+    if (error) {
+      setStartError("Could not start this visit. Please try again.");
+      return;
+    }
+    setStatus("in_progress");
+    router.refresh();
+  }
 
   async function saveNotes(text: string) {
     if (text === lastSavedNotes.current) return;
@@ -137,6 +197,7 @@ export function VisitDetailClient({
   }
 
   function handleTaskTap(task: VisitTaskItem, index: number) {
+    if (!isActive) return; // view mode — tasks are read-only until the visit is started
     if (task.completed || index !== firstIncompleteIndex) return; // strict in-order completion
     if (task.requires_emar) {
       setEmarDraft(
@@ -230,35 +291,51 @@ export function VisitDetailClient({
       .eq("id", visitId);
     setCompleting(false);
     setConfirmComplete(false);
-    if (!error) router.push("/my-day");
+    if (!error) {
+      router.push("/my-day");
+      router.refresh();
+    }
   }
 
   const emarTask = tasks.find((t) => t.id === emarTaskId);
 
   return (
     <div className="px-4 py-4">
+      {isCompleted ? null : isActive ? (
+        <div className="mb-4 flex items-center gap-2 rounded-input border border-success-green-text/20 bg-success-green-light p-3">
+          <i className="ti ti-player-play text-[16px] text-success-green-text" aria-hidden="true" />
+          <p className="text-body font-medium text-success-green-text">Visit in progress</p>
+        </div>
+      ) : (
+        <div className="mb-4 flex items-center gap-2 rounded-input border border-ai-blue-border bg-ai-blue-light p-3">
+          <i className="ti ti-eye text-[16px] text-nhs-blue" aria-hidden="true" />
+          <p className="text-body text-ai-blue-text">You are viewing this visit. Tap &ldquo;Start visit&rdquo; when you arrive.</p>
+        </div>
+      )}
+
       <h2 className="mb-2 text-label uppercase tracking-wide text-text-secondary">Tasks</h2>
       <div className="flex flex-col gap-2">
         {tasks.map((task, index) => {
-          const isActive = !task.completed && index === firstIncompleteIndex;
-          const isUpcoming = !task.completed && !isActive;
+          const isCurrentTask = !task.completed && index === firstIncompleteIndex;
+          const isUpcoming = !task.completed && !isCurrentTask;
           return (
             <button
               key={task.id}
               type="button"
               onClick={() => handleTaskTap(task, index)}
-              disabled={task.completed || isUpcoming}
+              disabled={!isActive || task.completed || isUpcoming}
               className={[
                 "flex items-center gap-2.5 rounded-input border p-3 text-left",
+                !isActive ? "opacity-60" : "",
                 task.completed ? "border-border-default bg-card-bg" : "",
-                isActive ? "border-nhs-blue bg-card-bg shadow-sm" : "",
+                isCurrentTask ? "border-nhs-blue bg-card-bg shadow-sm" : "",
                 isUpcoming ? "border-border-default bg-card-bg opacity-70" : "",
               ].join(" ")}
             >
               <span
                 className={[
                   "flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] border-2",
-                  task.completed ? "border-nhs-green bg-nhs-green" : isActive ? "border-nhs-blue" : "border-border-default",
+                  task.completed ? "border-nhs-green bg-nhs-green" : isCurrentTask ? "border-nhs-blue" : "border-border-default",
                 ].join(" ")}
               >
                 {task.completed ? <i className="ti ti-check text-[13px] text-white" aria-hidden="true" /> : null}
@@ -266,7 +343,7 @@ export function VisitDetailClient({
               <span
                 className={[
                   "flex-1 text-body",
-                  task.completed ? "text-text-secondary line-through" : isActive ? "font-medium text-nhs-blue" : "text-text-primary",
+                  task.completed ? "text-text-secondary line-through" : isCurrentTask ? "font-medium text-nhs-blue" : "text-text-primary",
                 ].join(" ")}
               >
                 {task.task_label}
@@ -297,26 +374,43 @@ export function VisitDetailClient({
         <p className="mt-1 text-tiny text-text-secondary">Auto-saves every 30 seconds</p>
       </div>
 
-      <button
-        type="button"
-        disabled={!allTasksDone || completing}
-        onClick={() => setConfirmComplete(true)}
-        className="mt-5 flex w-full items-center justify-center gap-1.5 rounded-btn bg-nhs-green py-[11px] text-[14px] font-medium text-white disabled:opacity-50"
-      >
-        <i className="ti ti-check text-[16px]" aria-hidden="true" />
-        {allTasksDone ? "Complete visit" : "Complete visit — finish all tasks first"}
-      </button>
+      {startError ? <p className="mt-3 text-body text-nhs-red">{startError}</p> : null}
 
-      <button
-        type="button"
-        onClick={async () => {
-          await saveNotes(notes);
-          router.push("/my-day");
-        }}
-        className="mt-2.5 w-full text-center text-secondary text-text-secondary"
-      >
-        Pause visit
-      </button>
+      {isCompleted ? null : isActive ? (
+        <button
+          type="button"
+          disabled={!allTasksDone || completing}
+          onClick={() => setConfirmComplete(true)}
+          className="mt-5 flex w-full items-center justify-center gap-1.5 rounded-btn bg-nhs-green py-[11px] text-[14px] font-medium text-white disabled:opacity-50"
+        >
+          <i className="ti ti-check text-[16px]" aria-hidden="true" />
+          {allTasksDone ? "Complete visit" : "Complete visit — finish all tasks first"}
+        </button>
+      ) : (
+        <button
+          type="button"
+          disabled={starting}
+          onClick={() => startVisit()}
+          className="mt-5 flex w-full items-center justify-center gap-1.5 rounded-btn bg-nhs-green py-[11px] text-[14px] font-medium text-white disabled:opacity-50"
+        >
+          <i className="ti ti-player-play text-[16px]" aria-hidden="true" />
+          {starting ? "Starting…" : "Start visit"}
+        </button>
+      )}
+
+      {isActive ? (
+        <button
+          type="button"
+          onClick={async () => {
+            await saveNotes(notes);
+            router.push("/my-day");
+            router.refresh();
+          }}
+          className="mt-2.5 w-full text-center text-secondary text-text-secondary"
+        >
+          Pause visit
+        </button>
+      ) : null}
 
       <ConfirmDialog
         open={confirmComplete}
@@ -433,6 +527,37 @@ export function VisitDetailClient({
           </button>
         </div>
       </Modal>
+
+      {conflictVisit ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => !starting && setConflictVisit(null)}>
+          <div className="box-border w-full max-w-[480px] rounded-t-card bg-card-bg p-5" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-2 flex justify-center">
+              <span className="h-1 w-10 rounded-full bg-border-default" aria-hidden="true" />
+            </div>
+            <p className="text-body text-text-primary">
+              You have an active visit with {conflictVisit.clientFirstName}. Do you want to pause that visit and open this one instead?
+            </p>
+            <div className="mt-4 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => startVisit(conflictVisit.id)}
+                disabled={starting}
+                className="w-full rounded-btn bg-nhs-blue py-[10px] text-[13px] font-medium text-white disabled:opacity-50"
+              >
+                {starting ? "Pausing…" : "Pause current and open this"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConflictVisit(null)}
+                disabled={starting}
+                className="w-full rounded-btn border border-border-default bg-card-bg py-[10px] text-[13px] font-medium text-text-primary"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
