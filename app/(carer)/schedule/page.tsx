@@ -98,7 +98,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     // "Swap with colleague" — a carer's users SELECT policy only permits
     // reading their own row, so this needs the admin client, scoped
     // explicitly to their own org_id and reading only names.
-    admin.from("staff").select("id, users:id(first_name, last_name)").eq("org_id", carer!.org_id).neq("id", carer!.id),
+    admin.from("staff").select("id, users(first_name, last_name)").eq("org_id", carer!.org_id).neq("id", carer!.id),
     supabase
       .from("shift_requests")
       .select("request_type, status, date_from, date_to")
