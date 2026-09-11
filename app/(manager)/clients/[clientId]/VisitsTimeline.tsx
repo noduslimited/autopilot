@@ -23,12 +23,14 @@ const STATUS_BADGE: Record<string, BadgeVariant> = {
   cancelled: "draft",
 };
 
+// See MyDayClient.tsx (2026-09-06) for why timeZone is pinned explicitly.
+// Confirmed live on the client Visits tab 2026-09-11.
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" });
 }
 
 function formatTimeRange(start: string, end: string): string {
-  const fmt = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const fmt = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
   return `${fmt(start)} – ${fmt(end)}`;
 }
 

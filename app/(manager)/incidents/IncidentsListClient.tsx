@@ -142,7 +142,7 @@ export function IncidentsListClient({ incidents, clients }: { incidents: Inciden
                   <div className="shrink-0 text-right">
                     <p className="font-mono text-secondary text-nhs-blue">{incident.incidentRef}</p>
                     <p className="mt-0.5 text-secondary text-text-muted">
-                      {new Date(incident.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                      {new Date(incident.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" })}
                     </p>
                   </div>
                 </div>

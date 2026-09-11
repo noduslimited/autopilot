@@ -231,7 +231,7 @@ export function CarePlanContent({
 
       <p className="text-secondary text-text-secondary">
         {lastReviewedAt
-          ? `Last reviewed ${new Date(lastReviewedAt).toLocaleDateString("en-GB")}${reviewerName ? ` by ${reviewerName}` : ""}`
+          ? `Last reviewed ${new Date(lastReviewedAt).toLocaleDateString("en-GB", { timeZone: "Europe/London" })}${reviewerName ? ` by ${reviewerName}` : ""}`
           : "Not yet reviewed"}
       </p>
 

@@ -240,7 +240,7 @@ export function FinanceListClient({
                   return (
                     <tr key={invoice.id} className="border-b border-border-default last:border-b-0">
                       <td className="py-2.5 pr-4 text-body text-text-primary">
-                        {invoice.sentAt ? new Date(invoice.sentAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                        {invoice.sentAt ? new Date(invoice.sentAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" }) : "—"}
                         {invoice.sentToEmail ? <span className="block text-secondary text-text-secondary">to {invoice.sentToEmail}</span> : null}
                       </td>
                       <td className="py-2.5 pr-4 text-body font-medium text-text-primary">{invoice.clientName}</td>

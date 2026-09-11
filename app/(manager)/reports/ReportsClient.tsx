@@ -227,7 +227,7 @@ export function ReportsClient({
                       </Badge>
                     </td>
                     <td className="py-2.5 pr-4 text-body text-text-secondary">
-                      {new Date(report.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                      {new Date(report.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" })}
                     </td>
                     <td className="py-2.5 pr-4 text-right">
                       <SavedReportDownloadButton report={report} />

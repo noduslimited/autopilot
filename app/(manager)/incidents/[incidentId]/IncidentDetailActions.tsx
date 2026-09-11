@@ -120,7 +120,7 @@ export function IncidentDetailActions({
             Signed off
             {signedOffByName ? ` by ${signedOffByName}` : ""}
             {signedOffAt
-              ? ` · ${new Date(signedOffAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
+              ? ` · ${new Date(signedOffAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" })}`
               : ""}
           </button>
         )}
