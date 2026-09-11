@@ -12,9 +12,19 @@ export interface MessageItem {
   created_at: string;
 }
 
+// Real hydration-mismatch bug (React error #418), found live 2026-09-11
+// via a full-app Playwright sweep: this is a client component rendering
+// a server-provided timestamp, so it renders once on the server (Netlify,
+// UTC) and again on hydration in the viewer's own browser (Europe/
+// London) — without an explicit timeZone, those two renders disagree by
+// an hour for roughly seven months of the year (BST). Same root cause,
+// same fix, as MyDayClient.tsx's timeRange() earlier this session; see
+// that file's comment for the full explanation. This shared component is
+// used by both the family Messages page and the manager Client Profile's
+// Messages tab, so fixing it here fixes both surfaces.
 function dateSeparatorLabel(date: Date, todayStart: Date): string {
   const diffDays = Math.round((todayStart.getTime() - Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())) / (1000 * 60 * 60 * 24));
-  const dateStr = date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
+  const dateStr = date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short", timeZone: "Europe/London" });
   if (diffDays === 0) return `Today — ${dateStr}`;
   return dateStr;
 }
@@ -67,7 +77,7 @@ export function MessageThread({ messages, viewerId }: { messages: MessageItem[];
                     >
                       {message.body}
                     </div>
-                    <p className="mt-0.5 text-tiny text-text-secondary">{new Date(message.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</p>
+                    <p className="mt-0.5 text-tiny text-text-secondary">{new Date(message.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" })}</p>
                   </div>
                 </div>
               );
