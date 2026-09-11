@@ -7,6 +7,33 @@ import { createClient } from "@/lib/supabase/client";
 import { AuthLogo } from "../_components/AuthLogo";
 import { GoogleIcon } from "../_components/GoogleIcon";
 
+// Real bug found live 2026-09-11 (Gokul running the manual test plan,
+// ONB-06): "Something went wrong. Please try again." shown after
+// submitting, yet the password had genuinely already been saved server-
+// side (confirmed directly via the database — encrypted_password set, a
+// real session established) and public.users.status never flipped to
+// 'active'. Root cause: no guard against a double dispatch of
+// handleCreateAccount (a fast double-click, or a slow first response the
+// user thought hadn't registered) — the second updateUser({password})
+// call hits GoTrue's own "New password should be different from the old
+// password" rejection, since the first call already silently succeeded,
+// and the generic catch-all error message gave no indication of that.
+// Same class of issue OrgRegisterForm.tsx's equivalent flow was already
+// hardened against with withTimeout()/try-catch-finally — applied here
+// too, plus an explicit guard against the second, would-be-duplicate
+// call, and graceful handling if GoTrue's "different password" rejection
+// is hit anyway (treated as a successful continuation, not an error,
+// since it can only mean the password this exact submission tried to set
+// was already set).
+const SUBMIT_TIMEOUT_MS = 15_000;
+
+function withTimeout<T>(promise: PromiseLike<T>): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error("Request timed out. Please try again.")), SUBMIT_TIMEOUT_MS)),
+  ]);
+}
+
 const ROLE_LABELS: Record<string, string> = {
   manager: "Manager",
   carer: "Carer",
@@ -96,6 +123,7 @@ export function InvitationAcceptForm({ token }: { token: string }) {
 
   async function handleCreateAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitting) return; // guards against a fast double-click/double-submit
     setError(null);
 
     if (password.length < 8) {
@@ -108,25 +136,38 @@ export function InvitationAcceptForm({ token }: { token: string }) {
     }
 
     setSubmitting(true);
-    const supabase = createClient();
-    const { data: updateData, error: updateError } = await supabase.auth.updateUser({ password });
+    try {
+      const supabase = createClient();
+      const { data: updateData, error: updateError } = await withTimeout(supabase.auth.updateUser({ password }));
 
-    if (updateError) {
-      setError("Something went wrong. Please try again.");
+      // GoTrue rejects setting a password identical to the current one.
+      // The only way that can happen here is if an earlier submission
+      // (from this same form, e.g. a double-click) already set it to
+      // exactly this value — so this isn't a real failure, it's
+      // confirmation the account is already in the state we want.
+      const alreadySetToThisPassword = /different from the old password/i.test(updateError?.message ?? "");
+
+      if (updateError && !alreadySetToThisPassword) {
+        setError("Something went wrong. Please try again.");
+        return;
+      }
+
+      // Invitation accepted — flip status from 'invited' to 'active' (Team
+      // Members list, Settings, needs this distinction). A plain update, not
+      // conditioned on the current value — harmless no-op for a user who
+      // was somehow already active.
+      const userId = updateData?.user?.id ?? (await supabase.auth.getUser()).data.user?.id;
+      if (userId) {
+        await supabase.from("users").update({ status: "active" }).eq("id", userId);
+      }
+
+      // Auth route + authenticated session -> middleware redirects to role home.
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    // Invitation accepted — flip status from 'invited' to 'active' (Team
-    // Members list, Settings, needs this distinction). A plain update, not
-    // conditioned on the current value — harmless no-op for a user who
-    // was somehow already active.
-    if (updateData.user) {
-      await supabase.from("users").update({ status: "active" }).eq("id", updateData.user.id);
-    }
-
-    // Auth route + authenticated session -> middleware redirects to role home.
-    router.refresh();
   }
 
   if (state.status === "verifying") {
