@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, type FormEvent } from "react";
+import { Suspense, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -35,20 +35,6 @@ function LoginForm() {
 
   const notice = searchParams.get("notice");
   const noticeMessage = notice ? NOTICES[notice] : null;
-
-  // Perf pass, 2026-09-06: speculatively warm the client Router Cache for
-  // all three portal home routes, since the role isn't known until
-  // sign-in resolves. Note this doesn't speed up the very first post-login
-  // hop itself — that's a server-side redirect from proxy.ts (role-based
-  // routing/trial-gating lives there, not here), not a client-side
-  // Link/router.push, so it doesn't consume this prefetch — but it does
-  // mean any of the three destinations is already warm for whatever
-  // client-side navigation happens next (e.g. clicking a sidebar item).
-  useEffect(() => {
-    router.prefetch("/dashboard");
-    router.prefetch("/my-day");
-    router.prefetch("/family/overview");
-  }, [router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

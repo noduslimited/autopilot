@@ -1,0 +1,36 @@
+-- Real, previously-undiscovered bug found 2026-09-11 while investigating
+-- residual dashboard/hydration slowness: `supabase_realtime` has existed
+-- since Session 1 with ZERO tables ever added to it (confirmed via
+-- `select * from pg_publication_tables where pubname = 'supabase_realtime'`
+-- returning an empty set against production). A fresh Supabase project's
+-- realtime publication starts empty by design — a table must be
+-- explicitly added (dashboard toggle, or this SQL) before Postgres will
+-- publish its row changes to the replication slot Realtime listens to.
+-- No migration across 18 sessions ever did this.
+--
+-- Every client-side `.channel(...).on("postgres_changes", ...)` call in
+-- the app (dashboard's "Live" visit-status panel, all 3 notification-bell
+-- components, both message-thread components) has been silently
+-- non-functional at the Postgres level this entire time: the WebSocket
+-- connects and the channel "joins" successfully (no client-visible
+-- error), but Postgres never actually emits change events to it, so no
+-- push update has ever arrived in production. Confirmed live via a real
+-- Playwright browser capturing WebSocket frames: the server replies to
+-- every phx_join with `{"status":"ok",...}` immediately followed by a
+-- `"system"` message reading "Unable to subscribe to changes with given
+-- parameters. Please check Realtime is enabled for the given connect
+-- parameters" — a real, distinct failure mode from a normal successful
+-- subscription, but one with no client-side error surfaced anywhere
+-- (notifyAndMaybeEmail/the bell components/VisitStatusPanel all treat a
+-- silently-inert channel identically to a working one). This is why
+-- every "live" feature "kept working" across so many past sessions'
+-- testing — every test happened to also trigger a `router.refresh()` or
+-- full page reload right afterward (completing an action, reloading to
+-- check), masking that the push path itself was dead the whole time.
+--
+-- RLS still gates what each subscriber actually receives once this is
+-- enabled — Realtime checks the subscribing role's SELECT policy per row
+-- before delivering a change event, exactly as it already does for a
+-- normal `select()` — so this does not widen access, only makes the
+-- already-designed live-update feature actually deliver.
+alter publication supabase_realtime add table visits, notifications, messages;
