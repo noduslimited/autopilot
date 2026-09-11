@@ -18,8 +18,12 @@ export interface ScheduleVisit {
   client: { first_name: string; last_name: string };
 }
 
+// See MyDayClient.tsx (2026-09-06) for why timeZone is pinned explicitly.
+// Confirmed live on /schedule 2026-09-11 — this is very likely the same
+// root cause as the "router.push() unreliable on first click" item in
+// the Post-Launch Checklist, whose control case was this exact page.
 function timeRange(start: string, end: string): string {
-  const fmt = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const fmt = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
   return `${fmt(start)} – ${fmt(end)}`;
 }
 

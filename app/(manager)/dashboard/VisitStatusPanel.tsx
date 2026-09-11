@@ -54,8 +54,12 @@ function personName(value: VisitRow["clients"]): string {
   return person ? `${person.first_name} ${person.last_name}` : "Unassigned";
 }
 
+// See MyDayClient.tsx (2026-09-06) for why timeZone is pinned explicitly.
+// Confirmed live on the dashboard 2026-09-11 (only reproducible once the
+// demo org's visit dates were shifted to include "today" — see that
+// day's log entry).
 function timeRange(start: string, end: string): string {
-  const format = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const format = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
   return `${format(start)} – ${format(end)}`;
 }
 

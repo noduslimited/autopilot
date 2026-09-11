@@ -33,8 +33,12 @@ const CARE_TYPE_LABELS: Record<string, string> = {
 
 const DEFAULT_VISIBLE = 5;
 
+// See MyDayClient.tsx (2026-09-06) for why timeZone is pinned explicitly
+// — this is a client component, so an unpinned locale-only format here
+// disagrees between server (UTC) and browser (Europe/London) render and
+// triggers a real React hydration error. Confirmed live 2026-09-11.
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
 }
 
 export function ClientListClient({ clients }: { clients: ClientListItem[] }) {
