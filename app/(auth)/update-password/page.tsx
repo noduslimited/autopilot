@@ -82,6 +82,11 @@ function UpdatePasswordForm() {
       return;
     }
 
+    // An invitee who opened their invite but never set a password is sent
+    // here by "Resend invitation" — setting a password completes the invite.
+    const { data: me } = await supabase.auth.getUser();
+    if (me.user) await supabase.from("users").update({ status: "active" }).eq("id", me.user.id).eq("status", "invited");
+
     // AUTH-06: "Old sessions are invalidated after password reset."
     await supabase.auth.signOut({ scope: "others" });
     await supabase.auth.signOut();

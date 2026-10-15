@@ -59,6 +59,18 @@ export async function POST(request: Request) {
     },
   });
 
+  // If the invitee already opened their link (which confirms the email) but
+  // never set a password, Supabase refuses a second invite ("email_exists")
+  // and they'd be stuck. Send them a set-your-password email instead —
+  // /update-password marks a still-'invited' account active once used.
+  if (error && (error.code === "email_exists" || /already (been )?registered/i.test(error.message))) {
+    const { error: resetError } = await admin.auth.resetPasswordForEmail(target.email, {
+      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/update-password`,
+    });
+    if (!resetError) return NextResponse.json({ success: true, method: "password_setup" });
+    console.error("resend invite (password setup) failed:", resetError);
+  }
+
   if (error) {
     console.error("resend invite failed:", error);
     return NextResponse.json({ error: "Could not resend the invitation." }, { status: 400 });
