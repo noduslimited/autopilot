@@ -11,7 +11,10 @@ export default async function ReportIncidentPage() {
   const { data: carer } = await supabase.from("users").select("id, org_id").eq("id", authUser!.id).single();
 
   const [{ data: clientRows }, { data: activeVisit }] = await Promise.all([
-    supabase.from("clients").select("id, first_name, last_name").eq("assigned_carer_id", carer!.id).eq("status", "active").order("first_name"),
+    // RLS already limits a carer to their assigned clients plus any client they
+    // are covering a visit for - a covering carer must be able to report an
+    // incident for the client they are visiting (found 2026-10-15).
+    supabase.from("clients").select("id, first_name, last_name").eq("status", "active").order("first_name"),
     supabase.from("visits").select("id, client_id").eq("assigned_carer_id", carer!.id).eq("status", "in_progress").maybeSingle(),
   ]);
 
