@@ -56,7 +56,7 @@ function renderInvoiceHtml(org: OrgInvoiceDetails, clientName: string, invoiceRe
       <tbody>${rows}</tbody>
     </table>
     <p style="text-align:right;font-weight:bold;">Total due: £${total.toFixed(2)}</p>
-    ${dueDate ? `<p>Due date: ${new Date(dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</p>` : ""}
+    ${dueDate ? `<p>Due date: ${new Date(dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" })}</p>` : ""}
     ${bankLines.length > 0 ? `<p>Payment details:<br>${bankLines.join("<br>")}</p>` : ""}
     <p>Payment should be made directly to ${org.name} by bank transfer or card reader, as arranged.</p>
   `;

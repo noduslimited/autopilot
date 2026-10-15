@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { suggestOrgCode, isValidOrgCode } from "@/lib/utils/orgCode";
 import { AuthLogo } from "../_components/AuthLogo";
@@ -32,7 +31,6 @@ const CARE_TYPE_OPTIONS = [
 type CodeStatus = "idle" | "checking" | "available" | "taken" | "invalid";
 
 export function OrgRegisterForm() {
-  const router = useRouter();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [stepError, setStepError] = useState<string | null>(null);
@@ -199,8 +197,10 @@ export function OrgRegisterForm() {
         return;
       }
 
-      // Auth route + authenticated session -> middleware redirects to /dashboard.
-      router.refresh();
+      // Full navigation (not router.refresh) so the middleware's redirect to
+      // /dashboard always lands — soft refreshes occasionally stalled.
+      window.location.replace("/dashboard");
+      return;
     } catch (err) {
       setStepError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {

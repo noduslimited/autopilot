@@ -18,9 +18,9 @@ export interface StaffListItem {
   id: string;
   name: string;
   role: "carer" | "senior_carer" | "manager";
-  dbsStatus: "valid" | "expiring_soon" | "expired";
-  trainingStatus: "current" | "due_soon" | "overdue";
-  status: "on_shift" | "off_today" | "sick_leave" | "on_leave";
+  dbsStatus: "valid" | "expiring_soon" | "expired" | "not_recorded";
+  trainingStatus: "current" | "due_soon" | "overdue" | "none";
+  status: "on_shift" | "off_today" | "sick_leave" | "on_leave" | "invited" | "deactivated";
 }
 
 const ROLE_LABELS: Record<StaffListItem["role"], string> = {
@@ -33,12 +33,14 @@ const DBS_BADGE: Record<StaffListItem["dbsStatus"], { label: string; variant: Ba
   valid: { label: "Valid", variant: "valid" },
   expiring_soon: { label: "Expiring soon", variant: "dueSoon" },
   expired: { label: "Expired", variant: "atRisk" },
+  not_recorded: { label: "Not recorded", variant: "notStarted" },
 };
 
 const TRAINING_BADGE: Record<StaffListItem["trainingStatus"], { label: string; variant: BadgeVariant }> = {
   current: { label: "Current", variant: "valid" },
   due_soon: { label: "Due soon", variant: "dueSoon" },
   overdue: { label: "Overdue", variant: "atRisk" },
+  none: { label: "None recorded", variant: "notStarted" },
 };
 
 const STATUS_BADGE: Record<StaffListItem["status"], { label: string; variant: BadgeVariant }> = {
@@ -46,6 +48,8 @@ const STATUS_BADGE: Record<StaffListItem["status"], { label: string; variant: Ba
   off_today: { label: "Off today", variant: "notStarted" },
   sick_leave: { label: "Sick leave", variant: "atRisk" },
   on_leave: { label: "On leave", variant: "pending" },
+  invited: { label: "Pending invitation", variant: "dueSoon" },
+  deactivated: { label: "Deactivated", variant: "notStarted" },
 };
 
 export function StaffListClient({ staff }: { staff: StaffListItem[] }) {

@@ -19,6 +19,7 @@ import { DayView } from "./DayView";
 import { MonthView } from "./MonthView";
 import { AiScheduleForm } from "./AiScheduleForm";
 import { ShiftRequestsPanel, type ShiftRequestRow } from "@/components/manager/ShiftRequestsPanel";
+import { addDaysISO, addMinutesHHMM, formatUKDate, ukDateISO, ukDayRange, ukTimeHHMM, ukWallTimeToISO } from "@/lib/utils/time";
 
 export interface RotaStaff {
   id: string;
@@ -77,12 +78,6 @@ function withTimeout<T>(promise: PromiseLike<T>): Promise<T> {
   ]);
 }
 
-function addDaysISO(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 // Maps a care need's key (AddClientForm's CARE_NEED_OPTIONS, care_plans.
 // what_we_help_with) onto visit_tasks' narrower task_type CHECK constraint
 // ('meal_prep' | 'medication' | 'moving' | 'personal_care' | 'log_notes' |
@@ -120,12 +115,11 @@ export async function ensureVisitsForShift(
   startTime: string,
   clientIds: string[],
 ) {
-  const dayStart = `${date}T00:00:00`;
-  const dayEnd = `${addDaysISO(date, 1)}T00:00:00`;
+  const { start: dayStart, end: dayEnd } = ukDayRange(date);
 
   const { data: existingDayVisits } = await supabase
     .from("visits")
-    .select("id, client_id, status")
+    .select("id, client_id, status, scheduled_end")
     .eq("assigned_carer_id", staffId)
     .gte("scheduled_start", dayStart)
     .lt("scheduled_start", dayEnd);
@@ -137,7 +131,13 @@ export async function ensureVisitsForShift(
     }
   }
 
-  let cursorTime = startTime;
+  // Rule (Gokul, 2026-10-15): a carer is only ever with ONE client at a time
+  // (a client may have several carers at once — that's never restricted).
+  // Visits are laid end to end in UK wall-clock time; the cursor is kept as
+  // a plain "HH:MM" UK time and only converted to a UTC instant at the very
+  // end. (Previously the cursor was advanced via toISOString(), i.e. in UTC,
+  // which during BST booked the 2nd client into the 1st client's slot.)
+  let cursorTime = startTime.slice(0, 5);
   for (const clientId of clientIds) {
     const existingVisit = (existingDayVisits ?? []).find((v) => v.client_id === clientId && v.status !== "cancelled");
 
@@ -149,9 +149,9 @@ export async function ensureVisitsForShift(
     const durationMinutes = client?.visit_duration_minutes ?? 60;
 
     if (existingVisit) {
-      cursorTime = new Date(new Date(`${date}T${cursorTime}`).getTime() + durationMinutes * 60_000)
-        .toISOString()
-        .slice(11, 16);
+      // Continue after the existing visit's real end so nothing overlaps it.
+      const existingEnd = existingVisit.scheduled_end ? ukTimeHHMM(existingVisit.scheduled_end) : addMinutesHHMM(cursorTime, durationMinutes);
+      cursorTime = existingEnd > cursorTime ? existingEnd : addMinutesHHMM(cursorTime, durationMinutes);
       continue;
     }
 
@@ -161,9 +161,10 @@ export async function ensureVisitsForShift(
       .eq("client_id", clientId)
       .maybeSingle();
 
-    const scheduledStart = new Date(`${date}T${cursorTime}`);
-    const scheduledEnd = new Date(scheduledStart.getTime() + durationMinutes * 60_000);
-    cursorTime = scheduledEnd.toISOString().slice(11, 16);
+    const endTime = addMinutesHHMM(cursorTime, durationMinutes);
+    const scheduledStart = new Date(ukWallTimeToISO(date, cursorTime));
+    const scheduledEnd = new Date(ukWallTimeToISO(date, endTime));
+    cursorTime = endTime;
 
     const needs = carePlan?.what_we_help_with ?? [];
     const tasks = needs.map((need, index) => ({
@@ -196,10 +197,8 @@ export async function ensureVisitsForShift(
 }
 
 function weekRangeLabel(weekDates: string[]): string {
-  const start = new Date(`${weekDates[0]}T00:00:00Z`);
-  const end = new Date(`${weekDates[6]}T00:00:00Z`);
-  const startLabel = start.toLocaleDateString("en-GB", { day: "numeric" });
-  const endLabel = end.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const startLabel = formatUKDate(weekDates[0], { day: "numeric" });
+  const endLabel = formatUKDate(weekDates[6], { day: "numeric", month: "long", year: "numeric" });
   return `Week of ${startLabel}–${endLabel}`;
 }
 
@@ -277,8 +276,11 @@ export function RotaGrid({
     clientIds: string[];
     sickShiftId: string;
     date: string;
+    startTime: string;
+    endTime: string;
   } | null>(null);
   const [aiDismissed, setAiDismissed] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [aiApplying, setAiApplying] = useState(false);
 
   const shiftByStaffAndDate = useMemo(() => {
@@ -291,7 +293,7 @@ export function RotaGrid({
     const map = new Map<string, RotaVisit[]>();
     for (const visit of visits) {
       if (!visit.assigned_carer_id || visit.status === "cancelled") continue;
-      const key = `${visit.assigned_carer_id}|${visit.scheduled_start.slice(0, 10)}`;
+      const key = `${visit.assigned_carer_id}|${ukDateISO(visit.scheduled_start)}`;
       const list = map.get(key) ?? [];
       list.push(visit);
       map.set(key, list);
@@ -488,18 +490,24 @@ export function RotaGrid({
 
   function startEditVisit(visit: RotaVisit) {
     setVisitEditId(visit.id);
-    setVisitEditStart(visit.scheduled_start.slice(11, 16));
-    setVisitEditEnd(visit.scheduled_end.slice(11, 16));
+    setVisitEditStart(ukTimeHHMM(visit.scheduled_start));
+    setVisitEditEnd(ukTimeHHMM(visit.scheduled_end));
     setVisitEditWarning(null);
   }
 
   async function saveVisitTime(visit: RotaVisit, shiftDate: string, siblings: RotaVisit[]) {
-    const newStart = new Date(`${shiftDate}T${visitEditStart}`).toISOString();
-    const newEnd = new Date(`${shiftDate}T${visitEditEnd}`).toISOString();
+    if (!visitEditStart || !visitEditEnd || visitEditEnd <= visitEditStart) {
+      setVisitEditWarning("End time must be after the start time.");
+      return;
+    }
+    const newStart = ukWallTimeToISO(shiftDate, visitEditStart);
+    const newEnd = ukWallTimeToISO(shiftDate, visitEditEnd);
 
+    // A carer can only be with one client at a time — overlapping one of
+    // their own other visits is never allowed (no "save anyway").
     const overlap = findOverlappingVisit(newStart, newEnd, siblings, visit.id);
-    if (overlap && !visitEditWarning) {
-      setVisitEditWarning(`This overlaps ${overlap.clientName}'s visit — save anyway?`);
+    if (overlap) {
+      setVisitEditWarning(`This overlaps ${overlap.clientName}'s visit (${ukTimeHHMM(overlap.scheduled_start)}–${ukTimeHHMM(overlap.scheduled_end)}). A carer can only be with one client at a time — choose another time.`);
       return;
     }
 
@@ -521,6 +529,19 @@ export function RotaGrid({
         supabase.from("rota_shifts").update({ shift_type: "sick_leave", start_time: null, end_time: null }).eq("id", shift.id),
       );
       if (error) throw error;
+      // The sick carer's scheduled visits that day become unassigned, so
+      // they show as "needs a carer" (dashboard alert / NO CARER) instead of
+      // silently staying with someone who won't turn up.
+      const { start, end } = ukDayRange(shift.shift_date);
+      await withTimeout(
+        supabase
+          .from("visits")
+          .update({ assigned_carer_id: null })
+          .eq("assigned_carer_id", shift.staff_id)
+          .eq("status", "scheduled")
+          .gte("scheduled_start", start)
+          .lt("scheduled_start", end),
+      );
       if (shift.assigned_client_ids.length > 0) {
         requestAiSuggestion(shift);
       }
@@ -549,6 +570,8 @@ export function RotaGrid({
         clientIds: sickShift.assigned_client_ids,
         sickShiftId: sickShift.id,
         date: sickShift.shift_date,
+        startTime: sickShift.start_time?.slice(0, 5) ?? "09:00",
+        endTime: sickShift.end_time?.slice(0, 5) ?? "17:00",
       });
       setAiDismissed(false);
     }
@@ -559,14 +582,50 @@ export function RotaGrid({
     setAiApplying(true);
 
     try {
-      const coveringShift = shiftByStaffAndDate.get(`${aiSuggestion.suggestedStaffId}|${aiSuggestion.date}`);
-      if (coveringShift) {
-        const merged = Array.from(new Set([...coveringShift.assigned_client_ids, ...aiSuggestion.clientIds]));
+      const { data: userData } = await withTimeout(supabase.auth.getUser());
+      const { data: userRow } = await withTimeout(supabase.from("users").select("org_id").eq("id", userData.user!.id).single());
+      const orgId = userRow!.org_id;
+      const coverId = aiSuggestion.suggestedStaffId;
+      const coveringShift = shiftByStaffAndDate.get(`${coverId}|${aiSuggestion.date}`);
+      let merged = aiSuggestion.clientIds;
+      let startTime = aiSuggestion.startTime;
+      if (coveringShift && coveringShift.start_time) {
+        merged = Array.from(new Set([...coveringShift.assigned_client_ids, ...aiSuggestion.clientIds]));
+        startTime = coveringShift.start_time.slice(0, 5);
         const { error } = await withTimeout(
           supabase.from("rota_shifts").update({ assigned_client_ids: merged }).eq("id", coveringShift.id),
         );
         if (error) throw error;
+      } else {
+        // The covering carer had a free day — give them a shift with the
+        // sick carer's hours.
+        const { error } = await withTimeout(
+          supabase.from("rota_shifts").insert({
+            org_id: orgId,
+            staff_id: coverId,
+            shift_date: aiSuggestion.date,
+            start_time: aiSuggestion.startTime,
+            end_time: aiSuggestion.endTime,
+            shift_type: isWeekend(aiSuggestion.date) ? "weekend" : "weekday",
+            assigned_client_ids: merged,
+          }),
+        );
+        if (error) throw error;
       }
+      // The sick carer's (now unassigned) visits are replaced by fresh,
+      // back-to-back visits for the covering carer.
+      const { start, end } = ukDayRange(aiSuggestion.date);
+      await withTimeout(
+        supabase
+          .from("visits")
+          .update({ status: "cancelled" })
+          .is("assigned_carer_id", null)
+          .eq("status", "scheduled")
+          .in("client_id", aiSuggestion.clientIds)
+          .gte("scheduled_start", start)
+          .lt("scheduled_start", end),
+      );
+      await ensureVisitsForShift(supabase, orgId, coverId, aiSuggestion.date, startTime, merged);
       const { error } = await withTimeout(
         supabase.from("rota_shifts").update({ assigned_client_ids: [] }).eq("id", aiSuggestion.sickShiftId),
       );
@@ -627,7 +686,7 @@ export function RotaGrid({
         <div>
           <h1 className="text-page-heading text-text-primary">Rota</h1>
           <p className="mt-1 text-secondary text-text-secondary">
-            {view === "week" ? weekRangeLabel(weekDates) : view === "day" ? new Date(`${selectedDate}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : new Date(`${monthStartISO}T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
+            {view === "week" ? weekRangeLabel(weekDates) : view === "day" ? new Date(`${selectedDate}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" }) : new Date(`${monthStartISO}T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "Europe/London" })}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -752,7 +811,7 @@ export function RotaGrid({
           <div className="space-y-3">
             <h2 className="text-section-heading text-text-primary">{staff.find((s) => s.id === detailShift.staff_id)?.name}</h2>
             <p className="text-body text-text-secondary">
-              {new Date(`${detailShift.shift_date}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
+              {new Date(`${detailShift.shift_date}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" })}
             </p>
             {detailShift.shift_type !== "sick_leave" ? (
               <p className="text-body text-text-primary">{formatTimeRange(detailShift.start_time, detailShift.end_time)}</p>
@@ -784,7 +843,7 @@ export function RotaGrid({
                       ) : (
                         <>
                           <span className="text-body text-text-primary">
-                            {visit.scheduled_start.slice(11, 16)}–{visit.scheduled_end.slice(11, 16)} {visit.clientName}
+                            {ukTimeHHMM(visit.scheduled_start)}–{ukTimeHHMM(visit.scheduled_end)} {visit.clientName}
                           </span>
                           <span className="flex items-center gap-2 text-secondary">
                             <button type="button" onClick={() => startEditVisit(visit)} className="text-nhs-blue">
@@ -811,7 +870,7 @@ export function RotaGrid({
               <Button variant="secondary" onClick={() => openEditShift(detailShift)}>
                 Edit
               </Button>
-              <Button variant="secondary" onClick={() => deleteShift(detailShift.id)}>
+              <Button variant="secondary" onClick={() => setConfirmDeleteId(detailShift.id)}>
                 Delete shift
               </Button>
             </div>
@@ -933,7 +992,7 @@ export function RotaGrid({
                       if (!client) return null;
                       const duration = client.visit_duration_minutes ?? 60;
                       const start = cursor;
-                      const end = new Date(new Date(`2000-01-01T${cursor}`).getTime() + duration * 60_000).toISOString().slice(11, 16);
+                      const end = addMinutesHHMM(cursor, duration);
                       cursor = end;
                       return `${start}–${end} ${client.first_name}`;
                     })
@@ -974,11 +1033,24 @@ export function RotaGrid({
       </Modal>
 
       <ConfirmDialog
+        open={!!confirmDeleteId}
+        title="Delete this shift?"
+        message="The shift will be removed from the rota. Visits already scheduled for it are not deleted."
+        confirmLabel="Delete shift"
+        onConfirm={() => {
+          const id = confirmDeleteId;
+          setConfirmDeleteId(null);
+          if (id) void deleteShift(id);
+        }}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
+
+      <ConfirmDialog
         open={!!moveConfirm}
         title="Move shift?"
         message={
           moveConfirm
-            ? `Move ${moveConfirm.staffName}'s shift from ${new Date(`${moveConfirm.fromDate}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long" })} to ${new Date(`${moveConfirm.toDate}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long" })}? This will reassign their clients.`
+            ? `Move ${moveConfirm.staffName}'s shift from ${new Date(`${moveConfirm.fromDate}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", timeZone: "Europe/London" })} to ${new Date(`${moveConfirm.toDate}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", timeZone: "Europe/London" })}? This will reassign their clients.`
             : ""
         }
         confirmLabel="Move shift"

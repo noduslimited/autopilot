@@ -1,3 +1,5 @@
+import { ukDateISO } from "@/lib/utils/time";
+
 // Source: PRD sections 6.6 (Family Messages) and 4.3 (Client Profile
 // Messages tab, per Session 10's decision to add it there). Shared between
 // both portals — alignment is by sender_id === viewerId (the viewer's own
@@ -23,7 +25,7 @@ export interface MessageItem {
 // used by both the family Messages page and the manager Client Profile's
 // Messages tab, so fixing it here fixes both surfaces.
 function dateSeparatorLabel(date: Date, todayStart: Date): string {
-  const diffDays = Math.round((todayStart.getTime() - Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())) / (1000 * 60 * 60 * 24));
+  const diffDays = Math.round((todayStart.getTime() - new Date(`${ukDateISO(date)}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24));
   const dateStr = date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short", timeZone: "Europe/London" });
   if (diffDays === 0) return `Today — ${dateStr}`;
   return dateStr;
@@ -40,7 +42,7 @@ function initials(name: string): string {
 }
 
 export function MessageThread({ messages, viewerId }: { messages: MessageItem[]; viewerId: string }) {
-  const todayStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
+  const todayStart = new Date(`${ukDateISO()}T00:00:00Z`);
 
   const groups: Array<{ label: string; messages: MessageItem[] }> = [];
   for (const message of messages) {

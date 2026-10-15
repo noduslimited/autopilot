@@ -25,24 +25,29 @@ export async function sendEmail({ to, subject, html }: SendEmailParams): Promise
     return false;
   }
 
-  try {
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ from: FROM_ADDRESS, to, subject, html }),
-    });
+  // Resend's free tier allows ~2 requests/second; notifyAndMaybeEmail sends
+  // to every manager in parallel, so a 429 (or a transient 5xx/network
+  // error) is retried with backoff instead of the email being silently
+  // dropped (an incident email went missing in testing, 2026-10-15).
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ from: FROM_ADDRESS, to, subject, html }),
+      });
 
-    if (!response.ok) {
-      console.error("sendEmail: Resend API error", response.status, await response.text().catch(() => ""));
-      return false;
+      if (response.ok) return true;
+      const retryable = response.status === 429 || response.status >= 500;
+      console.error(`sendEmail: Resend API error (attempt ${attempt})`, response.status, await response.text().catch(() => ""));
+      if (!retryable) return false;
+    } catch (error) {
+      console.error(`sendEmail: request failed (attempt ${attempt})`, error);
     }
-
-    return true;
-  } catch (error) {
-    console.error("sendEmail: request failed", error);
-    return false;
+    if (attempt < 3) await new Promise((r) => setTimeout(r, 700 * attempt));
   }
+  return false;
 }

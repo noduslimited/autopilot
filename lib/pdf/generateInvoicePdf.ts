@@ -24,7 +24,7 @@ export function generateInvoicePdf(data: InvoicePdfData): void {
   if (data.clientAddress) y = addKeyValueLine(doc, "", data.clientAddress, y);
   y = addKeyValueLine(doc, "Status", data.status[0].toUpperCase() + data.status.slice(1), y);
   if (data.dueDate) {
-    y = addKeyValueLine(doc, "Due date", new Date(data.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }), y);
+    y = addKeyValueLine(doc, "Due date", new Date(data.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" }), y);
   }
   y += 4;
 

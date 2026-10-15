@@ -1,4 +1,5 @@
 import { newBrandedDoc, ensureSpace, PAGE_MARGIN, PAGE_WIDTH } from "./pdfHelpers";
+import { ukDateISO } from "@/lib/utils/time";
 
 export interface StaffHoursPdfRow {
   name: string;
@@ -19,7 +20,7 @@ const ROLE_LABELS: Record<string, string> = {
 // Item 1, Gokul's direct request 2026-09-06 — Staff Hours Report PDF
 // export, same branded-header/table pattern as generateInvoiceListPdf.ts.
 export function generateStaffHoursPdf(rows: StaffHoursPdfRow[], dateFromLabel: string, dateToLabel: string): void {
-  const { doc, y: startY } = newBrandedDoc("Staff hours report", `${dateFromLabel} – ${dateToLabel} · Generated ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`);
+  const { doc, y: startY } = newBrandedDoc("Staff hours report", `${dateFromLabel} – ${dateToLabel} · Generated ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" })}`);
   let y = startY;
 
   doc.setFontSize(8);
@@ -74,5 +75,5 @@ export function generateStaffHoursPdf(rows: StaffHoursPdfRow[], dateFromLabel: s
   doc.text(`${(totals.actual - totals.scheduled >= 0 ? "+" : "") + (totals.actual - totals.scheduled).toFixed(1)}h`, PAGE_MARGIN + 142, y);
   doc.text(String(totals.visits), PAGE_WIDTH - PAGE_MARGIN, y, { align: "right" });
 
-  doc.save(`staff-hours-${new Date().toISOString().slice(0, 10)}.pdf`);
+  doc.save(`staff-hours-${ukDateISO()}.pdf`);
 }

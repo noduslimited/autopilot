@@ -6,12 +6,13 @@ import { AiSummarySection } from "./AiSummarySection";
 import { AlertBanner } from "./AlertBanner";
 import { ComplianceSnapshot } from "./ComplianceSnapshot";
 import { AnalyticsSection, type StaffAnalyticsRow } from "./AnalyticsSection";
+import { ukDateISO, ukDayRange, ukHour } from "@/lib/utils/time";
 
 // Source: PRD section 4.2 (Dashboard)
 
+// UK calendar date (Europe/London), held at UTC midnight so date arithmetic stays simple.
 function startOfTodayUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return new Date(`${ukDateISO()}T00:00:00Z`);
 }
 
 function startOfMonthUTC(): Date {
@@ -27,7 +28,7 @@ function startOfWeekUTC(): Date {
 }
 
 function greeting(): string {
-  const hour = new Date().getHours();
+  const hour = ukHour();
   if (hour < 12) return "Good morning";
   if (hour < 17) return "Good afternoon";
   return "Good evening";
@@ -73,15 +74,15 @@ export default async function DashboardPage() {
         "id, client_id, assigned_carer_id, scheduled_start, scheduled_end, check_in_time, status, clients(first_name, last_name), users:assigned_carer_id(first_name, last_name)",
       )
       .eq("org_id", orgId)
-      .gte("scheduled_start", todayStart.toISOString())
-      .lt("scheduled_start", todayEnd.toISOString())
+      .gte("scheduled_start", ukDayRange(ukDateISO()).start)
+      .lt("scheduled_start", ukDayRange(ukDateISO()).end)
       .order("scheduled_start", { ascending: true }),
     supabase.from("clients").select("id, created_at").eq("org_id", orgId).eq("status", "active"),
     supabase
       .from("rota_shifts")
       .select("staff_id")
       .eq("org_id", orgId)
-      .eq("shift_date", todayStart.toISOString().slice(0, 10))
+      .eq("shift_date", ukDateISO())
       .not("shift_type", "in", "(sick_leave,off,annual_leave)"),
     supabase.from("incidents").select("id, severity, created_at").eq("org_id", orgId).eq("status", "open"),
     supabase
@@ -90,7 +91,7 @@ export default async function DashboardPage() {
       .eq("org_id", orgId)
       .in("status", ["sent", "overdue"]),
     supabase.from("care_plans").select("last_reviewed_at").eq("org_id", orgId),
-    supabase.from("staff").select("id, dbs_expiry").eq("org_id", orgId),
+    supabase.from("staff").select("id, dbs_expiry, users!inner(status)").eq("org_id", orgId).eq("users.status", "active"),
     supabase.from("training_records").select("staff_id, expiry_date").eq("org_id", orgId),
     supabase
       .from("emar_records")
@@ -116,7 +117,7 @@ export default async function DashboardPage() {
   // tables the rest of the dashboard already reads from — nothing new
   // introduced beyond named-selection scoping to "this week"/"this month".
   const [{ data: allStaff }, { data: allClients }, { data: weekVisits }, { data: monthIncidents }] = await Promise.all([
-    supabase.from("staff").select("id, users(first_name, last_name)").eq("org_id", orgId),
+    supabase.from("staff").select("id, users!inner(first_name, last_name, status)").eq("org_id", orgId).eq("users.status", "active"),
     supabase.from("clients").select("id, assigned_carer_id").eq("org_id", orgId).eq("status", "active"),
     supabase
       .from("visits")
@@ -222,7 +223,7 @@ export default async function DashboardPage() {
       : 100;
 
   const today = new Date();
-  const dateLabel = today.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+  const dateLabel = today.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" });
 
   return (
     <div className="p-5">

@@ -50,6 +50,8 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
+  // Org name for the invitation email template ({{ .Data.org_name }}).
+  const { data: inviteOrg } = await admin.from("organisations").select("name").eq("id", managerRow.org_id).single();
   const { error } = await admin.auth.admin.inviteUserByEmail(body.email, {
     data: {
       first_name: body.firstName,
@@ -58,6 +60,7 @@ export async function POST(request: Request) {
       role: toUsersRole(body.role),
       staff_role: body.role,
       status: "invited",
+      org_name: inviteOrg?.name ?? "",
     },
   });
 

@@ -2,6 +2,7 @@
 
 import type { RotaStaff, RotaShift, RotaVisit } from "./RotaGrid";
 import { formatTimeRange } from "./RotaGrid";
+import { ukMinutesSinceMidnight, ukTimeHHMM } from "@/lib/utils/time";
 
 // Source: PRD section 4.4 ("Day view — single column for the selected
 // day. Rows per carer — each row shows all visits for that carer on that
@@ -12,8 +13,7 @@ const DAY_END_MIN = 20 * 60; // 20:00
 const TOTAL_MIN = DAY_END_MIN - DAY_START_MIN;
 
 function minutesSinceMidnight(iso: string): number {
-  const d = new Date(iso);
-  return d.getHours() * 60 + d.getMinutes();
+  return ukMinutesSinceMidnight(iso);
 }
 
 const STATUS_COLOURS: Record<string, string> = {
@@ -107,10 +107,10 @@ export function DayView({
                           onClick={() => onOpenDetail(shift)}
                           className={["absolute top-0 h-8 overflow-hidden rounded-[6px] border px-1.5 text-left text-[11px] leading-tight", STATUS_COLOURS[visit.status] ?? STATUS_COLOURS.scheduled].join(" ")}
                           style={{ left: `${left}%`, width: `${width}%` }}
-                          title={`${visit.scheduled_start.slice(11, 16)}–${visit.scheduled_end.slice(11, 16)} ${visit.clientName}`}
+                          title={`${ukTimeHHMM(visit.scheduled_start)}–${ukTimeHHMM(visit.scheduled_end)} ${visit.clientName}`}
                         >
                           <span className="block truncate font-medium">{visit.clientName}</span>
-                          <span className="block truncate">{visit.scheduled_start.slice(11, 16)}</span>
+                          <span className="block truncate">{ukTimeHHMM(visit.scheduled_start)}</span>
                         </button>
                       );
                     })}

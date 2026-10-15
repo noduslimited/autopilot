@@ -43,6 +43,14 @@ export function TeamMembersClient({ members }: { members: TeamMember[] }) {
     router.refresh();
   }
 
+  async function handleReactivate(member: TeamMember) {
+    setResendingId(member.id);
+    const supabase = createClient();
+    await supabase.from("users").update({ status: "active" }).eq("id", member.id);
+    setResendingId(null);
+    router.refresh();
+  }
+
   async function handleResend(member: TeamMember) {
     setResendingId(member.id);
     const response = await fetch("/api/settings/resend-invite", {
@@ -95,6 +103,16 @@ export function TeamMembersClient({ members }: { members: TeamMember[] }) {
                           className="rounded-btn border border-border-default bg-card-bg px-3 py-[6px] text-[12px] font-medium text-text-primary"
                         >
                           {resendingId === member.id ? "Resending…" : resentId === member.id ? "Sent" : "Resend invitation"}
+                        </button>
+                      ) : null}
+                      {member.status === "deactivated" ? (
+                        <button
+                          type="button"
+                          onClick={() => handleReactivate(member)}
+                          disabled={resendingId === member.id}
+                          className="rounded-btn border border-border-default bg-card-bg px-3 py-[6px] text-[12px] font-medium text-nhs-blue"
+                        >
+                          {resendingId === member.id ? "Reactivating…" : "Reactivate"}
                         </button>
                       ) : null}
                       {member.status !== "deactivated" ? (

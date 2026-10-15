@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 import { callClaude, estimateCost } from "@/lib/anthropic/client";
+import { ukDateISO } from "@/lib/utils/time";
 
 // Source: AI Feature Specification section 4.1 (Pre-visit Insight). Fires
 // automatically when the carer opens Visit Detail ("Triggered by: Carer
@@ -13,9 +14,9 @@ export const PRE_VISIT_INSIGHT_FEATURE = "pre_visit_insight";
 const DAILY_LIMIT = 200;
 const MAX_TOKENS = 80;
 
+// UK calendar date (Europe/London), held at UTC midnight so date arithmetic stays simple.
 function startOfTodayUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return new Date(`${ukDateISO()}T00:00:00Z`);
 }
 
 export async function getPreVisitInsight(

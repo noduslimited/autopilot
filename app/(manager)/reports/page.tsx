@@ -41,7 +41,7 @@ export default async function ReportsPage() {
         .lt("scheduled_start", end.toISOString());
       const rows = (data ?? []).filter((r) => r.status !== "cancelled");
       const completed = rows.filter((r) => r.status === "completed").length;
-      return { label, value: rows.length > 0 ? Math.round((completed / rows.length) * 100) : 0 };
+      return { label, value: rows.length > 0 ? Math.round((completed / rows.length) * 100) : 0, hasData: rows.length > 0 };
     }),
   );
 
@@ -54,7 +54,7 @@ export default async function ReportsPage() {
         .lt("created_at", end.toISOString());
       const rows = data ?? [];
       const administered = rows.filter((r) => r.administered).length;
-      return { label, value: rows.length > 0 ? Math.round((administered / rows.length) * 100) : 0 };
+      return { label, value: rows.length > 0 ? Math.round((administered / rows.length) * 100) : 0, hasData: rows.length > 0 };
     }),
   );
 

@@ -88,9 +88,9 @@ export async function POST(request: Request) {
   const { data: managers } = await admin.from("users").select("id").eq("org_id", carer.org_id).eq("role", "manager");
 
   const carerName = `${carer.first_name} ${carer.last_name}`;
-  const dateLabel = new Date(`${body.dateFrom}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const dateLabel = new Date(`${body.dateFrom}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" });
   const rangeLabel = body.dateTo && body.dateTo !== body.dateFrom
-    ? `${dateLabel} to ${new Date(`${body.dateTo}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`
+    ? `${dateLabel} to ${new Date(`${body.dateTo}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" })}`
     : dateLabel;
 
   await notifyAndMaybeEmail(admin, {

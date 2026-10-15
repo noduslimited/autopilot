@@ -4,6 +4,7 @@ import { Header } from "@/components/layout/Header";
 import { CarerHeaderIcons } from "@/components/carer/CarerHeaderIcons";
 import { ScheduleClient, type ScheduleVisit } from "./ScheduleClient";
 import type { MyShiftOption, ColleagueOption } from "./ManageMyShiftsPanel";
+import { ukDateISO } from "@/lib/utils/time";
 
 // Source: PRD section 5.4 (My Schedule), extended per Gokul's direct
 // request 2026-09-04 (items 3, 4, and 5 — visit card overflow, real
@@ -26,9 +27,9 @@ function addDays(date: Date, days: number): Date {
   return d;
 }
 
+// UK calendar date (Europe/London), held at UTC midnight so date arithmetic stays simple.
 function startOfTodayUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return new Date(`${ukDateISO()}T00:00:00Z`);
 }
 
 const NAV_RANGE_WEEKS = 4;
@@ -149,7 +150,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     (shiftRows ?? []).filter((s) => s.shift_type === "off" || s.shift_type === "sick_leave" || s.shift_type === "annual_leave").map((s) => s.shift_date),
   );
 
-  const weekLabel = `Week of ${weekDays[0].toLocaleDateString("en-GB", { day: "numeric", month: "short" })}–${weekDays[6].toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
+  const weekLabel = `Week of ${weekDays[0].toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" })}–${weekDays[6].toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" })}`;
   const canGoBack = weekStart > minWeekStart;
   const canGoForward = weekStart < maxWeekStart;
   const prevWeekKey = toDateKey(addDays(weekStart, -7));
@@ -191,7 +192,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
                     isSelected && leave ? "ring-2 ring-white" : "",
                   ].join(" ")}
                 >
-                  <span className="text-tiny uppercase">{d.toLocaleDateString("en-GB", { weekday: "short" })}</span>
+                  <span className="text-tiny uppercase">{d.toLocaleDateString("en-GB", { weekday: "short", timeZone: "Europe/London" })}</span>
                   <span className="text-[15px] font-bold">{d.getUTCDate()}</span>
                   {leave ? <span className="text-tiny">{DAY_LABEL[leave]}</span> : null}
                 </a>

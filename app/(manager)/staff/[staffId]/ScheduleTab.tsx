@@ -89,7 +89,7 @@ export async function ScheduleTab({ staffId }: { staffId: string }) {
   const cells: (number | null)[] = [...Array(firstWeekday).fill(null), ...Array.from({ length: totalDays }, (_, i) => i + 1)];
   while (cells.length % 7 !== 0) cells.push(null);
 
-  const monthLabel = now.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  const monthLabel = now.toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "Europe/London" });
 
   return (
     <div className="space-y-4">

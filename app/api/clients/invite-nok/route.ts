@@ -68,6 +68,8 @@ export async function POST(request: Request) {
   const { firstName, lastName } = splitName(body.nokName);
 
   const admin = createAdminClient();
+  // Org name for the invitation email template ({{ .Data.org_name }}).
+  const { data: inviteOrg } = await admin.from("organisations").select("name").eq("id", managerRow.org_id).single();
   const { error } = await admin.auth.admin.inviteUserByEmail(body.email, {
     data: {
       first_name: firstName,
@@ -77,6 +79,7 @@ export async function POST(request: Request) {
       client_id: client.id,
       relationship: body.relationship || null,
       status: "invited",
+      org_name: inviteOrg?.name ?? "",
     },
   });
 

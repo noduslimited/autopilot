@@ -3,6 +3,7 @@
 import type { DragEvent } from "react";
 import type { RotaStaff, RotaShift, RotaVisit } from "./RotaGrid";
 import { formatTimeRange, isWeekend } from "./RotaGrid";
+import { ukTimeHHMM } from "@/lib/utils/time";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -115,11 +116,11 @@ export function WeekView({
               "flex w-full items-center gap-1 rounded-[8px] px-1.5 py-1 text-left text-[11px] leading-tight",
               isToday ? "bg-nhs-blue text-white" : shift.shift_type === "weekend" ? "bg-[#EAF3DE] text-[#27500A]" : "bg-ai-blue-light text-[#0C447C]",
             ].join(" ")}
-            title={`${visit.scheduled_start.slice(11, 16)}–${visit.scheduled_end.slice(11, 16)} ${visit.clientName}`}
+            title={`${ukTimeHHMM(visit.scheduled_start)}–${ukTimeHHMM(visit.scheduled_end)} ${visit.clientName}`}
           >
             <span className={["h-1.5 w-1.5 shrink-0 rounded-full", isToday ? "bg-white" : STATUS_DOT[visit.status] ?? "bg-text-muted"].join(" ")} aria-hidden="true" />
             <span className="truncate">
-              {visit.scheduled_start.slice(11, 16)} {visit.clientName}
+              {ukTimeHHMM(visit.scheduled_start)} {visit.clientName}
             </span>
           </button>
         ))}

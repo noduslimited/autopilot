@@ -1,4 +1,5 @@
 import { newBrandedDoc, ensureSpace, PAGE_MARGIN, PAGE_WIDTH } from "./pdfHelpers";
+import { ukDateISO } from "@/lib/utils/time";
 
 export interface InvoiceListPdfRow {
   clientName: string;
@@ -12,7 +13,7 @@ export interface InvoiceListPdfRow {
 // 2026-09-03: "Export button and all report downloads must produce
 // PDFs, not CSV/print."
 export function generateInvoiceListPdf(rows: InvoiceListPdfRow[]): void {
-  const { doc, y: startY } = newBrandedDoc("Invoices", new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }));
+  const { doc, y: startY } = newBrandedDoc("Invoices", new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" }));
   let y = startY;
 
   doc.setFontSize(9);
@@ -33,7 +34,7 @@ export function generateInvoiceListPdf(rows: InvoiceListPdfRow[]): void {
     doc.text(row.clientName, PAGE_MARGIN, y);
     doc.text(row.invoiceRef, PAGE_MARGIN + 55, y);
     doc.text(row.status[0].toUpperCase() + row.status.slice(1), PAGE_MARGIN + 100, y);
-    doc.text(row.dueDate ? new Date(row.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—", PAGE_MARGIN + 130, y);
+    doc.text(row.dueDate ? new Date(row.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" }) : "—", PAGE_MARGIN + 130, y);
     doc.text(`£${row.totalAmount.toFixed(2)}`, PAGE_WIDTH - PAGE_MARGIN, y, { align: "right" });
     y += 6;
   }
@@ -45,5 +46,5 @@ export function generateInvoiceListPdf(rows: InvoiceListPdfRow[]): void {
   doc.setFontSize(10);
   doc.text(`Total: £${grandTotal.toFixed(2)}`, PAGE_WIDTH - PAGE_MARGIN, y, { align: "right" });
 
-  doc.save(`invoices-${new Date().toISOString().slice(0, 10)}.pdf`);
+  doc.save(`invoices-${ukDateISO()}.pdf`);
 }

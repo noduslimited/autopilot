@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { callClaude, estimateCost } from "@/lib/anthropic/client";
 import { getActiveServiceUserCount } from "@/lib/billing/activeServiceUsers";
+import { ukDateISO } from "@/lib/utils/time";
 
 // Source: Gokul, direct request 2026-09-03 — Settings overhaul item
 // 11.1 ("AI-generated recommendation analysing actual usage — clients,
@@ -18,9 +19,9 @@ const FEATURE = "billing_recommendation";
 const DAILY_LIMIT = 10;
 const MAX_TOKENS = 200;
 
+// UK calendar date (Europe/London), held at UTC midnight so date arithmetic stays simple.
 function startOfTodayUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return new Date(`${ukDateISO()}T00:00:00Z`);
 }
 function startOfMonthUTC(): Date {
   const now = new Date();

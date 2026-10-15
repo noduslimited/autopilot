@@ -45,6 +45,8 @@ export async function POST(request: Request) {
   const { data: staffRow } = await supabase.from("staff").select("role").eq("id", target.id).maybeSingle();
 
   const admin = createAdminClient();
+  // Org name for the invitation email template ({{ .Data.org_name }}).
+  const { data: inviteOrg } = await admin.from("organisations").select("name").eq("id", managerRow.org_id).single();
   const { error } = await admin.auth.admin.inviteUserByEmail(target.email, {
     data: {
       first_name: target.first_name,
@@ -52,6 +54,7 @@ export async function POST(request: Request) {
       org_id: managerRow.org_id,
       role: target.role,
       status: "invited",
+      org_name: inviteOrg?.name ?? "",
       ...(staffRow ? { staff_role: staffRow.role } : {}),
     },
   });

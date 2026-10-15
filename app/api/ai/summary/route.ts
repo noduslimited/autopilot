@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { callClaude, estimateCost } from "@/lib/anthropic/client";
+import { ukDateISO, ukDayRange } from "@/lib/utils/time";
 
 // Source: AI Feature Specification section 4.5 (Dashboard AI Summary),
 // section 5.1 (daily limit: 50 per org), section 5.4 (trial accounts).
@@ -9,9 +10,9 @@ const FEATURE = "dashboard_summary";
 const DAILY_LIMIT = 50;
 const MAX_TOKENS = 150;
 
+// UK calendar date (Europe/London), held at UTC midnight so date arithmetic stays simple.
 function startOfTodayUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return new Date(`${ukDateISO()}T00:00:00Z`);
 }
 
 export async function POST() {
@@ -72,8 +73,8 @@ export async function POST() {
       .from("visits")
       .select("status, assigned_carer_id")
       .eq("org_id", userRow.org_id)
-      .gte("scheduled_start", todayStart.toISOString())
-      .lt("scheduled_start", todayEnd.toISOString()),
+      .gte("scheduled_start", ukDayRange(ukDateISO()).start)
+      .lt("scheduled_start", ukDayRange(ukDateISO()).end),
     supabase
       .from("incidents")
       .select("severity")
@@ -83,7 +84,7 @@ export async function POST() {
       .from("training_records")
       .select("staff_id")
       .eq("org_id", userRow.org_id)
-      .lt("expiry_date", todayStart.toISOString().slice(0, 10)),
+      .lt("expiry_date", ukDateISO()),
   ]);
 
   const visits = todayVisits ?? [];

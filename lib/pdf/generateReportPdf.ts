@@ -4,7 +4,7 @@ import { newBrandedDoc, addParagraph, ensureSpace } from "./pdfHelpers";
 // shape (title + free-text content), used for both a freshly-generated
 // AI report and any previously saved one.
 export function generateReportPdf(title: string, content: string): void {
-  const { doc, y: startY } = newBrandedDoc(title, new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }));
+  const { doc, y: startY } = newBrandedDoc(title, new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" }));
   let y = startY;
 
   const paragraphs = content.split("\n\n");

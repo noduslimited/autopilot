@@ -6,6 +6,8 @@
 export interface BarChartDataPoint {
   label: string;
   value: number;
+  /** false when there was no data for this period (shown as — rather than 0%). */
+  hasData?: boolean;
 }
 
 export interface BarChartProps {
@@ -43,7 +45,7 @@ export function BarChart({ data, color, maxValue = 100, height = 120 }: BarChart
   return (
     <div>
       <div className="flex items-baseline gap-2">
-        <span className="text-[20px] font-bold text-text-primary">{latestValue}%</span>
+        <span className="text-[20px] font-bold text-text-primary">{data[data.length - 1]?.hasData === false ? "—" : `${latestValue}%`}</span>
       </div>
 
       <svg

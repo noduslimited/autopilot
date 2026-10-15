@@ -28,7 +28,7 @@ function clientName(value: PersonJoin): string {
 }
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
 }
 
 function minutesUntil(iso: string): number {

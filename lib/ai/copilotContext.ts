@@ -1,19 +1,20 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
+import { ukDateISO, ukDayRange } from "@/lib/utils/time";
 
 // Source: PRD section 4.9 ("Context sent to AI on each message") and AI
 // Feature Specification section 4.7 (morning briefing — same as dashboard
 // summary, section 4.5, plus unread family messages).
+// UK calendar date (Europe/London), held at UTC midnight so date arithmetic stays simple.
 function startOfTodayUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return new Date(`${ukDateISO()}T00:00:00Z`);
 }
 
 export async function gatherCopilotContext(supabase: SupabaseClient<Database>, orgId: string, orgName: string) {
   const todayStart = startOfTodayUTC();
   const todayEnd = new Date(todayStart);
   todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
-  const todayISO = todayStart.toISOString().slice(0, 10);
+  const todayISO = ukDateISO();
 
   const [{ data: todayVisits }, { data: openIncidents }, { data: todayShifts }, { data: staffRows }, { data: trainingRows }] =
     await Promise.all([
@@ -21,8 +22,8 @@ export async function gatherCopilotContext(supabase: SupabaseClient<Database>, o
         .from("visits")
         .select("status, assigned_carer_id")
         .eq("org_id", orgId)
-        .gte("scheduled_start", todayStart.toISOString())
-        .lt("scheduled_start", todayEnd.toISOString()),
+        .gte("scheduled_start", ukDayRange(ukDateISO()).start)
+        .lt("scheduled_start", ukDayRange(ukDateISO()).end),
       supabase
         .from("incidents")
         .select("incident_ref, incident_type, severity, description, clients(first_name, last_name)")
@@ -62,8 +63,8 @@ export async function gatherCopilotContext(supabase: SupabaseClient<Database>, o
   });
 
   return {
-    date: today.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
-    time: today.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+    date: today.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" }),
+    time: today.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" }),
     organisation_name: orgName,
     visits_today: {
       total: visits.length,

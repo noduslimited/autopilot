@@ -1,31 +1,34 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { carerNames } from "@/lib/family/carerNames";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getLinkedClientId } from "@/lib/family/getLinkedClient";
 import { UnlinkedAccountNotice } from "@/components/family/UnlinkedAccountNotice";
 import { Header } from "@/components/layout/Header";
+import { ukDateISO, ukDayRange, ukHour } from "@/lib/utils/time";
 
 // Source: PRD section 6.4 (Visit History)
 
+// UK calendar date (Europe/London), held at UTC midnight so date arithmetic stays simple.
 function startOfTodayUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return new Date(`${ukDateISO()}T00:00:00Z`);
 }
 
 function visitTimeName(iso: string): string {
-  const hour = new Date(iso).getUTCHours();
+  const hour = ukHour(new Date(iso));
   if (hour < 12) return "Morning visit";
   if (hour < 17) return "Afternoon visit";
   return "Evening visit";
 }
 
 function timeRange(start: string, end: string): string {
-  const fmt = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const fmt = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
   return `${fmt(start)} – ${fmt(end)}`;
 }
 
 function dateGroupLabel(date: Date, todayStart: Date): string {
-  const diffDays = Math.round((todayStart.getTime() - Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())) / (1000 * 60 * 60 * 24));
-  const dateStr = date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+  const diffDays = Math.round((todayStart.getTime() - new Date(`${ukDateISO(date)}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24));
+  const dateStr = date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" });
   if (diffDays === 0) return `Today — ${dateStr}`;
   if (diffDays === 1) return `Yesterday — ${dateStr}`;
   return dateStr;
@@ -54,15 +57,16 @@ export default async function FamilyVisitsPage({ searchParams }: { searchParams:
   const [{ data: visits }, { data: incidents }] = await Promise.all([
     supabase
       .from("visits")
-      .select("id, scheduled_start, scheduled_end, status, tasks_total, tasks_completed, visit_notes, staff:assigned_carer_id(first_name, last_name)")
+      .select("id, scheduled_start, scheduled_end, status, tasks_total, tasks_completed, visit_notes, assigned_carer_id")
       .eq("client_id", clientId)
       .eq("status", "completed")
       .gte("scheduled_start", windowStart.toISOString())
-      .lt("scheduled_start", todayEnd.toISOString())
+      .lt("scheduled_start", ukDayRange(ukDateISO()).end)
       .order("scheduled_start", { ascending: false }),
     supabase.from("incidents").select("visit_id").eq("client_id", clientId).not("visit_id", "is", null),
   ]);
 
+  const names = await carerNames(createAdminClient(), (visits ?? []).map((v) => v.assigned_carer_id));
   const incidentVisitIds = new Set((incidents ?? []).map((i) => i.visit_id));
 
   const groups: Array<{ label: string; visits: NonNullable<typeof visits> }> = [];
@@ -87,7 +91,7 @@ export default async function FamilyVisitsPage({ searchParams }: { searchParams:
               <h2 className="mb-2 text-label uppercase tracking-wide text-text-secondary">{group.label}</h2>
               <div className="flex flex-col gap-2.5">
                 {group.visits.map((visit) => {
-                  const carer = Array.isArray(visit.staff) ? visit.staff[0] : visit.staff;
+                  const carer = visit.assigned_carer_id ? names.get(visit.assigned_carer_id) : undefined;
                   const hasIncident = incidentVisitIds.has(visit.id);
                   return (
                     <div key={visit.id} className="flex gap-2.5">

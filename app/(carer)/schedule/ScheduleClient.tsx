@@ -125,7 +125,7 @@ export function ScheduleClient({
                 className="box-border flex w-full min-w-0 max-w-full items-center justify-between gap-2 overflow-hidden rounded-input border border-border-default bg-card-bg px-3 py-2.5"
               >
                 <span className="truncate text-body text-text-primary">
-                  {new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}
+                  {new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short", timeZone: "Europe/London" })}
                 </span>
                 <span className="shrink-0 text-secondary text-text-secondary">
                   {count} visit{count === 1 ? "" : "s"} assigned

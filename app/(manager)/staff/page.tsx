@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { StaffPageActions } from "./StaffPageActions";
 import { StaffListClient, type StaffListItem } from "./StaffListClient";
+import { ukDateISO } from "@/lib/utils/time";
 
 // Source: PRD section 4.5 (Staff)
 
@@ -19,10 +20,10 @@ function daysUntil(dateStr: string, todayISO: string): number {
 
 export default async function StaffPage() {
   const supabase = await createClient();
-  const todayISO = toISODate(new Date());
+  const todayISO = ukDateISO();
 
   const [{ data: staffRows }, { data: shiftsToday }, { data: trainingRows }] = await Promise.all([
-    supabase.from("staff").select("id, role, dbs_expiry, start_date, users(first_name, last_name)"),
+    supabase.from("staff").select("id, role, dbs_expiry, start_date, users(first_name, last_name, status)"),
     supabase.from("rota_shifts").select("staff_id, shift_type").eq("shift_date", todayISO),
     supabase.from("training_records").select("staff_id, expiry_date"),
   ]);
@@ -38,18 +39,18 @@ export default async function StaffPage() {
   const staffList: StaffListItem[] = (staffRows ?? []).map((row) => {
     const user = Array.isArray(row.users) ? row.users[0] : row.users;
 
-    let dbsStatus: "valid" | "expiring_soon" | "expired";
+    let dbsStatus: "valid" | "expiring_soon" | "expired" | "not_recorded";
     if (!row.dbs_expiry) {
-      dbsStatus = "expired";
+      dbsStatus = "not_recorded";
     } else {
       const days = daysUntil(row.dbs_expiry, todayISO);
       dbsStatus = days < 0 ? "expired" : days <= DBS_EXPIRING_SOON_DAYS ? "expiring_soon" : "valid";
     }
 
     const expiries = trainingByStaff.get(row.id) ?? [];
-    let trainingStatus: "current" | "due_soon" | "overdue";
+    let trainingStatus: "current" | "due_soon" | "overdue" | "none";
     if (expiries.length === 0) {
-      trainingStatus = "overdue";
+      trainingStatus = "none";
     } else if (expiries.some((d) => daysUntil(d, todayISO) < 0)) {
       trainingStatus = "overdue";
     } else if (expiries.some((d) => daysUntil(d, todayISO) <= TRAINING_DUE_SOON_DAYS)) {
@@ -59,8 +60,10 @@ export default async function StaffPage() {
     }
 
     const shiftType = shiftByStaff.get(row.id);
-    let status: "on_shift" | "off_today" | "sick_leave" | "on_leave";
-    if (shiftType === "sick_leave") status = "sick_leave";
+    let status: "on_shift" | "off_today" | "sick_leave" | "on_leave" | "invited" | "deactivated";
+    if (user?.status === "invited") status = "invited";
+    else if (user?.status === "deactivated") status = "deactivated";
+    else if (shiftType === "sick_leave") status = "sick_leave";
     else if (shiftType === "annual_leave") status = "on_leave";
     else if (shiftType === "weekday" || shiftType === "weekend") status = "on_shift";
     else status = "off_today";
@@ -75,11 +78,13 @@ export default async function StaffPage() {
     };
   });
 
-  const total = staffList.length;
+  // Header counts and compliance cover active staff only (not pending invites or deactivated accounts).
+  const activeStaff = staffList.filter((s) => s.status !== "invited" && s.status !== "deactivated");
+  const total = activeStaff.length;
   const onShift = staffList.filter((s) => s.status === "on_shift").length;
   const onSickLeave = staffList.filter((s) => s.status === "sick_leave").length;
-  const dbsValidCount = staffList.filter((s) => s.dbsStatus === "valid").length;
-  const trainingOverdueCount = staffList.filter((s) => s.trainingStatus === "overdue").length;
+  const dbsValidCount = activeStaff.filter((s) => s.dbsStatus === "valid").length;
+  const trainingOverdueCount = activeStaff.filter((s) => s.trainingStatus === "overdue").length;
 
   return (
     <div className="p-5">

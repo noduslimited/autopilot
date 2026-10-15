@@ -8,6 +8,7 @@ import { Input, Select, FieldLabel } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { InvoicePreviewModal } from "./InvoicePreviewModal";
 import type { InvoiceClientOption, LineItem, OrgInvoiceSettings } from "./types";
+import { ukDateISO, ukDayRange } from "@/lib/utils/time";
 
 function startOfMonthISODate(): string {
   const now = new Date();
@@ -15,7 +16,7 @@ function startOfMonthISODate(): string {
 }
 
 function todayISODate(): string {
-  return new Date().toISOString().slice(0, 10);
+  return ukDateISO();
 }
 
 function hoursBetween(start: string, end: string): number {
@@ -40,7 +41,7 @@ function buildDailyLineItems(
   return Array.from(hoursByDate.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([dateKey, hours]) => ({
-      description: `Care visit — ${new Date(`${dateKey}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`,
+      description: `Care visit — ${new Date(`${dateKey}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" })}`,
       quantity: Math.round(hours * 100) / 100,
       unit_price: 0,
       total: 0,
@@ -87,8 +88,8 @@ export function CreateInvoiceModal({
       .select("scheduled_start, scheduled_end, check_in_time, check_out_time")
       .eq("client_id", targetClientId)
       .eq("status", "completed")
-      .gte("scheduled_start", `${from}T00:00:00`)
-      .lt("scheduled_start", `${to}T23:59:59.999`)
+      .gte("scheduled_start", ukDayRange(from).start)
+      .lt("scheduled_start", ukDayRange(to).end)
       .order("scheduled_start");
 
     // Rate isn't stored anywhere in the schema (clients/staff/orgs have no
@@ -147,10 +148,14 @@ export function CreateInvoiceModal({
       return;
     }
 
+    const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
+    if (subtotal <= 0) {
+      setError("This invoice totals £0.00 — enter the hours and a rate (£/hr) for each line before generating.");
+      return;
+    }
+
     setSaving(true);
     setError(null);
-
-    const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
     const supabase = createClient();
     const {
       data: { user },

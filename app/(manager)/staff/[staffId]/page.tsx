@@ -6,6 +6,7 @@ import { OverviewTab } from "./OverviewTab";
 import { TrainingTab } from "./TrainingTab";
 import { ScheduleTab } from "./ScheduleTab";
 import { DocumentsTab } from "./DocumentsTab";
+import { ukDateISO } from "@/lib/utils/time";
 
 // Source: PRD section 4.5 (Staff Profile)
 const TABS = [
@@ -48,7 +49,7 @@ export default async function StaffProfilePage({
   const activeTab: TabKey = (TABS.find((t) => t.key === tab)?.key ?? "overview") as TabKey;
 
   const supabase = await createClient();
-  const todayISO = toISODate(new Date());
+  const todayISO = ukDateISO();
 
   const [{ data: staff }, { data: todayShift }] = await Promise.all([
     supabase
@@ -115,7 +116,7 @@ export default async function StaffProfilePage({
             </div>
             <p className="mt-1 text-secondary text-text-secondary">
               {ROLE_LABELS[staff.role] ?? staff.role}
-              {staff.start_date ? ` · Started ${new Date(staff.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}` : ""}
+              {staff.start_date ? ` · Started ${new Date(staff.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" })}` : ""}
             </p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>

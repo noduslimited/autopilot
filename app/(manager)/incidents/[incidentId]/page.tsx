@@ -127,8 +127,8 @@ export default async function IncidentDetailPage({
         </h1>
         <p className="mt-1 text-secondary text-text-secondary">
           Reported by {reporter ? `${reporter.first_name} ${reporter.last_name}` : "Unknown"} ·{" "}
-          {new Date(incident.created_at).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} at{" "}
-          {new Date(incident.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+          {new Date(incident.created_at).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" })} at{" "}
+          {new Date(incident.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" })}
         </p>
       </div>
 
@@ -147,8 +147,8 @@ export default async function IncidentDetailPage({
             <div className="flex justify-between text-body">
               <span className="text-text-secondary">Date and time</span>
               <span className="text-text-primary">
-                {new Date(incident.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} ·{" "}
-                {new Date(incident.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                {new Date(incident.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" })} ·{" "}
+                {new Date(incident.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" })}
               </span>
             </div>
             <div className="flex justify-between text-body">
@@ -238,8 +238,8 @@ export default async function IncidentDetailPage({
                 <p className="text-body font-medium text-text-primary">{entry.label}</p>
                 <p className="text-secondary text-text-secondary">
                   {entry.actorName} ·{" "}
-                  {new Date(entry.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}{" "}
-                  {new Date(entry.createdAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                  {new Date(entry.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" })}{" "}
+                  {new Date(entry.createdAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" })}
                 </p>
               </div>
             </div>

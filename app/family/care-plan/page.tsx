@@ -100,7 +100,7 @@ export default async function FamilyCarePlanPage() {
       <Header
         title="Care plan"
         backHref="/family/overview"
-        subtitle={`${client.first_name} ${client.last_name}${carePlan?.last_reviewed_at ? ` · Last reviewed ${new Date(carePlan.last_reviewed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}`}
+        subtitle={`${client.first_name} ${client.last_name}${carePlan?.last_reviewed_at ? ` · Last reviewed ${new Date(carePlan.last_reviewed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" })}` : ""}`}
       />
 
       <div className="px-4 py-4">

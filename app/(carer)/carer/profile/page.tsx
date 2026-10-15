@@ -5,6 +5,7 @@ import { ClientAvatar } from "@/components/clients/ClientAvatar";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { ChangePasswordButton } from "@/components/auth/ChangePasswordButton";
 import { Badge, type BadgeVariant } from "@/components/ui/Badge";
+import { ukDateISO } from "@/lib/utils/time";
 
 // Source: Gokul, direct request 2026-09-04 — carer mobile portal item 2
 // ("expand content" — was previously deliberately basic-only, per the
@@ -83,7 +84,7 @@ export default async function CarerProfilePage() {
       .order("completed_date", { ascending: false }),
   ]);
 
-  const todayISO = new Date().toISOString().slice(0, 10);
+  const todayISO = ukDateISO();
 
   return (
     <div>
@@ -106,7 +107,7 @@ export default async function CarerProfilePage() {
             {user.phone ? <Row label="Phone" value={user.phone} /> : null}
             {staff?.role ? <Row label="Role" value={ROLE_LABELS[staff.role] ?? staff.role} /> : null}
             {staff?.start_date ? (
-              <Row label="Start date" value={new Date(staff.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })} />
+              <Row label="Start date" value={new Date(staff.start_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" })} />
             ) : null}
             {staff?.emergency_contact_name ? <Row label="Emergency contact" value={staff.emergency_contact_name} /> : null}
             {staff?.emergency_contact_phone ? <Row label="Emergency contact phone" value={staff.emergency_contact_phone} last /> : null}
@@ -135,7 +136,7 @@ export default async function CarerProfilePage() {
                 {staff.dbs_expiry ? (
                   <Row
                     label="DBS expiry"
-                    value={new Date(staff.dbs_expiry).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+                    value={new Date(staff.dbs_expiry).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" })}
                     last={!trainingRecords || trainingRecords.length === 0}
                   />
                 ) : null}
@@ -155,8 +156,8 @@ export default async function CarerProfilePage() {
                             {record.module_name === "other" ? record.module_label : (MODULE_LABELS[record.module_name] ?? record.module_name)}
                           </p>
                           <p className="text-secondary text-text-secondary">
-                            Completed {new Date(record.completed_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · Expires{" "}
-                            {new Date(record.expiry_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                            Completed {new Date(record.completed_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" })} · Expires{" "}
+                            {new Date(record.expiry_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" })}
                           </p>
                         </div>
                         <Badge variant={badge.variant}>{badge.label}</Badge>

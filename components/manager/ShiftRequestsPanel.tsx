@@ -32,7 +32,7 @@ const TYPE_LABEL: Record<ShiftRequestRow["requestType"], { label: string; varian
 };
 
 function dateRangeLabel(from: string, to: string | null): string {
-  const fmt = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const fmt = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" });
   if (!to || to === from) return fmt(from);
   return `${fmt(from)} – ${fmt(to)}`;
 }

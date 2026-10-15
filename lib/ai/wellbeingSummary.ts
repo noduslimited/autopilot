@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 import { callClaude, estimateCost } from "@/lib/anthropic/client";
+import { ukDateISO } from "@/lib/utils/time";
 
 // Source: PRD section 6.3 ("Wellbeing this week" card — "AI-generated
 // plain-English wellbeing summary for the week"). Not one of the AI
@@ -11,9 +12,9 @@ export const WELLBEING_SUMMARY_FEATURE = "wellbeing_summary";
 const DAILY_LIMIT = 50;
 const MAX_TOKENS = 150;
 
+// UK calendar date (Europe/London), held at UTC midnight so date arithmetic stays simple.
 function startOfTodayUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return new Date(`${ukDateISO()}T00:00:00Z`);
 }
 
 function startOfWeekUTC(date: Date): Date {
@@ -57,7 +58,7 @@ export async function getWellbeingSummary(
   const rated = (visits ?? []).filter((v) => v.wellbeing_rating);
   if (rated.length === 0) return null;
 
-  const lines = rated.map((v) => `- ${new Date(v.scheduled_start).toLocaleDateString("en-GB", { weekday: "long" })}: ${v.wellbeing_rating}${v.visit_notes ? ` — ${v.visit_notes}` : ""}`);
+  const lines = rated.map((v) => `- ${new Date(v.scheduled_start).toLocaleDateString("en-GB", { weekday: "long", timeZone: "Europe/London" })}: ${v.wellbeing_rating}${v.visit_notes ? ` — ${v.visit_notes}` : ""}`);
 
   const prompt = `Write a brief, warm, plain-English summary of this care client's wellbeing this week, for their family member to read. Base it only on the ratings and notes below — do not invent details. Maximum 2 sentences.
 

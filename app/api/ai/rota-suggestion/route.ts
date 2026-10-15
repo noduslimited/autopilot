@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { callClaude, estimateCost } from "@/lib/anthropic/client";
+import { formatUKDate, ukDateISO } from "@/lib/utils/time";
 
 // Source: AI Feature Specification section 4.8 (AI Rota Suggestion),
 // section 5.1 (daily limit: 30 per org).
@@ -30,9 +31,9 @@ function isRotaSuggestionBody(value: unknown): value is RotaSuggestionBody {
   return typeof body.sickStaffId === "string" && typeof body.sickStaffName === "string" && typeof body.date === "string";
 }
 
+// UK calendar date (Europe/London), held at UTC midnight so date arithmetic stays simple.
 function startOfTodayUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return new Date(`${ukDateISO()}T00:00:00Z`);
 }
 
 function calculateHours(start: string | null, end: string | null): number {
@@ -112,26 +113,40 @@ export async function POST(request: Request) {
     };
   });
 
+  // Carers with no shift at all that day (and not on leave/sick) are the
+  // most available cover of all — previously they were never considered.
+  const [{ data: dayShifts }, { data: activeCarers }] = await Promise.all([
+    supabase.from("rota_shifts").select("staff_id").eq("org_id", userRow.org_id).eq("shift_date", body.date),
+    supabase.from("users").select("id, first_name, last_name").eq("org_id", userRow.org_id).eq("role", "carer").eq("status", "active"),
+  ]);
+  const rostered = new Set((dayShifts ?? []).map((s) => s.staff_id));
+  for (const c of activeCarers ?? []) {
+    if (c.id === body.sickStaffId || rostered.has(c.id)) continue;
+    staffWithCapacity.push({ staffId: c.id, name: `${c.first_name} ${c.last_name}`, assignedCount: 0, hoursWorked: 0, startTime: null, endTime: null });
+  }
+
+  const dayLabel = body.date === ukDateISO() ? "today" : `on ${formatUKDate(body.date, { weekday: "long", day: "numeric", month: "long" })}`;
+
   if (staffWithCapacity.length === 0) {
-    return NextResponse.json({ text: "No suitable cover available today.", suggestedStaffId: null });
+    return NextResponse.json({ text: `No suitable cover available ${dayLabel}.`, suggestedStaffId: null });
   }
 
   const candidate = [...staffWithCapacity].sort((a, b) => a.assignedCount - b.assignedCount || a.name.localeCompare(b.name))[0];
 
   const affectedDescription = (affectedClients ?? []).map((c) => `Client ${c.first_name}`).join(", ");
 
-  const prompt = `A care worker is on sick leave today. Suggest the best available cover.
+  const prompt = `A care worker is on sick leave ${dayLabel}. Suggest the best available cover.
 
 Sick staff member: ${body.sickStaffName}
 Affected visits: ${affectedDescription}
 
-Available staff today:
-${staffWithCapacity.map((s) => `- ${s.name}: ${s.assignedCount} clients already assigned, shift ${s.startTime ?? "?"}-${s.endTime ?? "?"}`).join("\n")}
+Available staff ${dayLabel}:
+${staffWithCapacity.map((s) => `- ${s.name}: ${s.assignedCount} clients already assigned, ${s.startTime ? `shift ${s.startTime}-${s.endTime}` : "no shift that day (free)"}`).join("\n")}
 
 Choose the staff member with the lowest current workload who has capacity to cover the affected visits. Respond in this format:
 "[Staff name] is available and could cover [description of affected visits]."
 
-One sentence only. If no suitable cover is available, respond: "No suitable cover available today."`;
+One sentence only. If no suitable cover is available, respond: "No suitable cover available ${dayLabel}."`;
 
   const result = await callClaude({ prompt, maxTokens: MAX_TOKENS });
 
@@ -148,5 +163,8 @@ One sentence only. If no suitable cover is available, respond: "No suitable cove
 
   const noCover = result.text.toLowerCase().includes("no suitable cover");
 
-  return NextResponse.json({ text: result.text, suggestedStaffId: noCover ? null : candidate.staffId });
+  // Accepting must assign the carer the sentence actually names — the AI
+  // may pick a different (equally light-loaded) carer than our sort did.
+  const named = staffWithCapacity.find((s) => result.text.includes(s.name));
+  return NextResponse.json({ text: result.text, suggestedStaffId: noCover ? null : (named ?? candidate).staffId });
 }

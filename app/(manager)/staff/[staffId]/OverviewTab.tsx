@@ -77,13 +77,13 @@ export async function OverviewTab({
           <div className="flex justify-between text-body">
             <span className="text-text-secondary">DBS expiry</span>
             <span className="text-text-primary">
-              {dbsExpiry ? new Date(dbsExpiry).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+              {dbsExpiry ? new Date(dbsExpiry).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" }) : "—"}
             </span>
           </div>
           <div className="flex justify-between text-body">
             <span className="text-text-secondary">Start date</span>
             <span className="text-text-primary">
-              {startDate ? new Date(startDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+              {startDate ? new Date(startDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" }) : "—"}
             </span>
           </div>
           <div className="flex justify-between text-body">

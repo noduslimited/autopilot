@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatGBP } from "@/lib/utils/time";
 import { createClient } from "@/lib/supabase/server";
 import { FinanceListClient, type InvoiceListItem } from "./FinanceListClient";
 
@@ -9,7 +10,7 @@ function startOfMonthUTC(): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
 
-const MONTH_LABEL = new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+const MONTH_LABEL = new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "Europe/London" });
 
 export default async function FinancePage() {
   const supabase = await createClient();
@@ -82,18 +83,18 @@ export default async function FinancePage() {
       <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="rounded-card border border-border-default bg-card-bg py-3.5 px-4">
           <p className="text-label text-text-secondary">Invoiced this month</p>
-          <p className="mt-1 text-section-heading text-text-primary">£{invoicedThisMonth.toLocaleString("en-GB", { minimumFractionDigits: 0 })}</p>
+          <p className="mt-1 text-section-heading text-text-primary">{formatGBP(invoicedThisMonth)}</p>
         </div>
         <div className="rounded-card border border-border-default bg-card-bg py-3.5 px-4">
           <p className="text-label text-text-secondary">Awaiting payment</p>
           <p className={["mt-1 text-section-heading", awaitingPayment > 0 ? "text-nhs-red" : "text-text-primary"].join(" ")}>
-            £{awaitingPayment.toLocaleString("en-GB", { minimumFractionDigits: 0 })}
+            {formatGBP(awaitingPayment)}
           </p>
         </div>
         <div className="rounded-card border border-border-default bg-card-bg py-3.5 px-4">
           <p className="text-label text-text-secondary">Confirmed paid</p>
           <p className="mt-1 text-section-heading text-success-green-text">
-            £{confirmedPaid.toLocaleString("en-GB", { minimumFractionDigits: 0 })}
+            {formatGBP(confirmedPaid)}
           </p>
         </div>
         <div className="rounded-card border border-border-default bg-card-bg py-3.5 px-4">

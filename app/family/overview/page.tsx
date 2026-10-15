@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { carerNames } from "@/lib/family/carerNames";
 import { getLinkedClientId } from "@/lib/family/getLinkedClient";
 import { getWellbeingSummary } from "@/lib/ai/wellbeingSummary";
 import { UnlinkedAccountNotice } from "@/components/family/UnlinkedAccountNotice";
@@ -10,6 +11,7 @@ import { CriticalBadges, type CriticalBadgesClient } from "@/components/clients/
 import { Badge } from "@/components/ui/Badge";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { MobileNotificationBell } from "@/components/notifications/MobileNotificationBell";
+import { ukDateISO, ukDayRange, ukHour, ukWeekday } from "@/lib/utils/time";
 
 // Source: Gokul, direct request 2026-09-02. The NOK relationship field
 // describes the family member's relationship TO the client ("Jennifer is
@@ -49,20 +51,20 @@ function startOfWeekUTC(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + diff));
 }
 
+// UK calendar date (Europe/London), held at UTC midnight so date arithmetic stays simple.
 function startOfTodayUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return new Date(`${ukDateISO()}T00:00:00Z`);
 }
 
 function visitTimeName(iso: string): string {
-  const hour = new Date(iso).getUTCHours();
+  const hour = ukHour(new Date(iso));
   if (hour < 12) return "Morning visit";
   if (hour < 17) return "Afternoon visit";
   return "Evening visit";
 }
 
 function timeRange(start: string, end: string): string {
-  const fmt = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const fmt = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
   return `${fmt(start)} – ${fmt(end)}`;
 }
 
@@ -106,10 +108,10 @@ export default async function FamilyOverviewPage() {
 
   const { data: todayVisits } = await supabase
     .from("visits")
-    .select("id, scheduled_start, scheduled_end, status, staff:assigned_carer_id(first_name, last_name)")
+    .select("id, scheduled_start, scheduled_end, status, assigned_carer_id")
     .eq("client_id", clientId)
-    .gte("scheduled_start", todayStart.toISOString())
-    .lt("scheduled_start", todayEnd.toISOString())
+    .gte("scheduled_start", ukDayRange(ukDateISO()).start)
+    .lt("scheduled_start", ukDayRange(ukDateISO()).end)
     .order("scheduled_start", { ascending: true });
 
   const weekStart = startOfWeekUTC(new Date());
@@ -125,7 +127,7 @@ export default async function FamilyOverviewPage() {
 
   const ratingByWeekday: Record<number, string | null> = {};
   for (const visit of weekVisits ?? []) {
-    const weekday = new Date(visit.scheduled_start).getUTCDay(); // 1=Mon..5=Fri
+    const weekday = ukWeekday(visit.scheduled_start); // 1=Mon..5=Fri
     if (weekday >= 1 && weekday <= 5 && visit.wellbeing_rating) ratingByWeekday[weekday] = visit.wellbeing_rating;
   }
 
@@ -133,7 +135,7 @@ export default async function FamilyOverviewPage() {
 
   const { data: latestVisit } = await supabase
     .from("visits")
-    .select("visit_notes, check_out_time, staff:assigned_carer_id(first_name, last_name)")
+    .select("visit_notes, check_out_time, assigned_carer_id")
     .eq("client_id", clientId)
     .eq("status", "completed")
     .not("visit_notes", "is", null)
@@ -141,7 +143,8 @@ export default async function FamilyOverviewPage() {
     .limit(1)
     .maybeSingle();
 
-  const latestCarer = latestVisit ? (Array.isArray(latestVisit.staff) ? latestVisit.staff[0] : latestVisit.staff) : null;
+  const names = await carerNames(admin, [...(todayVisits ?? []).map((v) => v.assigned_carer_id), latestVisit?.assigned_carer_id]);
+  const latestCarer = latestVisit?.assigned_carer_id ? (names.get(latestVisit.assigned_carer_id) ?? null) : null;
 
   return (
     <div>
@@ -166,7 +169,7 @@ export default async function FamilyOverviewPage() {
           ) : (
             <div className="flex flex-col divide-y divide-border-default">
               {(todayVisits ?? []).map((visit) => {
-                const carer = Array.isArray(visit.staff) ? visit.staff[0] : visit.staff;
+                const carer = visit.assigned_carer_id ? names.get(visit.assigned_carer_id) : undefined;
                 const status = STATUS_BADGE[visit.status] ?? STATUS_BADGE.scheduled;
                 return (
                   <div key={visit.id} className="py-2.5 first:pt-0 last:pb-0">
@@ -208,7 +211,7 @@ export default async function FamilyOverviewPage() {
               {latestCarer ? <ClientAvatar firstName={latestCarer.first_name} lastName={latestCarer.last_name} size="sm" /> : null}
               <div>
                 <p className="text-body font-medium text-text-primary">{latestCarer ? `${latestCarer.first_name} ${latestCarer.last_name}` : "Carer"}</p>
-                <p className="text-tiny text-text-secondary">{latestVisit.check_out_time ? new Date(latestVisit.check_out_time).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}</p>
+                <p className="text-tiny text-text-secondary">{latestVisit.check_out_time ? new Date(latestVisit.check_out_time).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" }) : ""}</p>
               </div>
             </div>
             <p className="mt-2 text-body text-text-primary">{latestVisit.visit_notes}</p>

@@ -221,6 +221,22 @@ export function CarePlanContent({
             <span className="text-body">High risk client{client.additional_risk_notes ? ` — ${client.additional_risk_notes}` : ""}</span>
           </div>
         ) : null}
+        {client.dietary_requirements ? (
+          <div className="flex items-start gap-2 rounded-card border border-border-default bg-card-bg py-2.5 px-3.5 text-text-primary">
+            <i className="ti ti-salad mt-0.5 text-[16px] text-nhs-blue" aria-hidden="true" />
+            <span className="text-body">Dietary requirements: {client.dietary_requirements}</span>
+          </div>
+        ) : null}
+        {client.mobility_aids || client.falls_risk || client.choking_risk ? (
+          <div className="flex items-start gap-2 rounded-card border border-border-default bg-card-bg py-2.5 px-3.5 text-text-primary">
+            <i className="ti ti-walk mt-0.5 text-[16px] text-nhs-blue" aria-hidden="true" />
+            <span className="text-body">
+              {[client.mobility_aids ? `Mobility aids: ${client.mobility_aids}` : null, client.falls_risk ? "Falls risk" : null, client.choking_risk ? "Choking risk" : null]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          </div>
+        ) : null}
         {client.dnacpr ? (
           <div className="flex items-start gap-2 rounded-card bg-dnacpr-purple-light py-2.5 px-3.5 text-dnacpr-purple-text">
             <i className="ti ti-heart-off mt-0.5 text-[16px]" aria-hidden="true" />

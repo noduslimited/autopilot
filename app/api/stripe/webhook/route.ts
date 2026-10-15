@@ -109,7 +109,7 @@ export async function POST(request: Request) {
 
       if (orgBefore && orgAfter?.billing_issue_started_at) {
         const deadline = new Date(new Date(orgAfter.billing_issue_started_at).getTime() + 48 * 60 * 60 * 1000);
-        const deadlineText = deadline.toLocaleString("en-GB", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+        const deadlineText = deadline.toLocaleString("en-GB", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
         await sendEmail({
           to: orgBefore.email,
           subject: "Autopilot — payment failed",

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { ShiftRequestRow } from "@/components/manager/ShiftRequestsPanel";
 import { RotaGrid, type RotaStaff, type RotaShift, type RotaClient, type RotaVisit } from "./RotaGrid";
+import { ukDateISO, ukDayRange } from "@/lib/utils/time";
 
 // Source: PRD section 4.4 (Rota) + Gokul's full-redesign request, 2026-09-03
 // (see CLAUDE.md section 16a for the amendment this session adds).
@@ -40,7 +41,7 @@ export default async function RotaPage({
 }) {
   const { view: rawView, week, date: dateParam, month: monthParam } = await searchParams;
   const view = rawView === "day" || rawView === "month" ? rawView : "week";
-  const todayISO = toISODate(new Date());
+  const todayISO = ukDateISO();
 
   const requestedMonday = week && !Number.isNaN(Date.parse(week)) ? mondayOf(new Date(week)) : mondayOf(new Date());
   const weekDates = Array.from({ length: 7 }, (_, i) => addDaysISO(toISODate(requestedMonday), i));
@@ -76,8 +77,8 @@ export default async function RotaPage({
       : supabase
           .from("visits")
           .select("id, client_id, assigned_carer_id, scheduled_start, scheduled_end, status, clients(first_name, last_name)")
-          .gte("scheduled_start", `${rangeStart}T00:00:00`)
-          .lt("scheduled_start", `${addDaysISO(rangeEnd, 1)}T00:00:00`),
+          .gte("scheduled_start", ukDayRange(rangeStart).start)
+          .lt("scheduled_start", ukDayRange(rangeEnd).end),
     // Org-wide pending shift requests — RLS (managers_view_org_requests)
     // already scopes this to the manager's own org, no explicit org_id
     // filter needed here.

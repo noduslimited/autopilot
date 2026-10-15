@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Badge, type BadgeVariant } from "@/components/ui/Badge";
 import { TrainingLogForm } from "./TrainingLogForm";
+import { ukDateISO } from "@/lib/utils/time";
 
 const MODULE_LABELS: Record<string, string> = {
   manual_handling: "Manual handling",
@@ -27,7 +28,7 @@ export async function TrainingTab({ staffId, orgId }: { staffId: string; orgId: 
     .eq("staff_id", staffId)
     .order("completed_date", { ascending: false });
 
-  const todayISO = new Date().toISOString().slice(0, 10);
+  const todayISO = ukDateISO();
 
   return (
     <div className="space-y-4">
@@ -55,10 +56,10 @@ export async function TrainingTab({ staffId, orgId }: { staffId: string; orgId: 
                         {r.module_name === "other" ? r.module_label : MODULE_LABELS[r.module_name] ?? r.module_name}
                       </td>
                       <td className="py-2 pr-4 text-body text-text-secondary">
-                        {new Date(r.completed_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                        {new Date(r.completed_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" })}
                       </td>
                       <td className="py-2 pr-4 text-body text-text-secondary">
-                        {new Date(r.expiry_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                        {new Date(r.expiry_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" })}
                       </td>
                       <td className="py-2 pr-4">
                         <Badge variant={badge.variant}>{badge.label}</Badge>

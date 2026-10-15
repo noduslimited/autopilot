@@ -2,12 +2,13 @@ import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/layout/Header";
 import { CarerHeaderIcons } from "@/components/carer/CarerHeaderIcons";
 import { MyDayClient, type MyDayVisit } from "./MyDayClient";
+import { ukDateISO, ukDayRange } from "@/lib/utils/time";
 
 // Source: PRD section 5.2 (My Day)
 
+// UK calendar date (Europe/London), held at UTC midnight so date arithmetic stays simple.
 function startOfTodayUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return new Date(`${ukDateISO()}T00:00:00Z`);
 }
 
 export default async function MyDayPage() {
@@ -32,8 +33,8 @@ export default async function MyDayPage() {
       "id, scheduled_start, scheduled_end, status, tasks_total, tasks_completed, client:clients(id, first_name, last_name, address, allergies, dietary_requirements, dnacpr, risk_level, assigned_carer_id)",
     )
     .eq("assigned_carer_id", carer!.id)
-    .gte("scheduled_start", todayStart.toISOString())
-    .lt("scheduled_start", todayEnd.toISOString())
+    .gte("scheduled_start", ukDayRange(ukDateISO()).start)
+    .lt("scheduled_start", ukDayRange(ukDateISO()).end)
     .order("scheduled_start", { ascending: true });
 
   // Supabase's embedded-relation typing can return either a single object

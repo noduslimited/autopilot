@@ -5,9 +5,24 @@ import Anthropic from "@anthropic-ai/sdk";
 const MODEL = "claude-sonnet-4-6";
 const TIMEOUT_MS = 10_000;
 
+// AI text is shown in plain-text fields (textareas, modals), so any
+// Markdown the model emits shows up as literal ## and ** characters.
+export function stripMarkdown(text: string): string {
+  return text
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1")
+    .replace(/^\s*-{3,}\s*$/gm, "")
+    .replace(/^(\s*)\*\s+/gm, "$1- ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export const SHARED_SYSTEM_PROMPT = `You are the AI assistant for Autopilot, a UK care management platform built for CQC-regulated care providers. You help care managers and carers work more efficiently.
 
 You have access to real data from the care provider's system. Only use the data provided to you in this message. Do not invent or assume information that is not explicitly given.
+
+Write in plain text only. Never use Markdown: no # headings, no **bold** or *italics*, no tables. Use short paragraphs, and simple numbered lines or "- " bullets only where a list genuinely helps.
 
 Your outputs will be read by registered care professionals. Be clear, concise, and professional. Use plain English — not clinical jargon. Avoid unnecessary hedging or caveats.
 
@@ -71,7 +86,7 @@ export async function callClaude({
       const textBlock = response.content.find(
         (block): block is Anthropic.TextBlock => block.type === "text",
       );
-      const text = textBlock?.text.trim();
+      const text = stripMarkdown(textBlock?.text ?? "");
       if (!text) return null;
 
       return {

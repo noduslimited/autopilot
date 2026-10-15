@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Select, FieldLabel, Textarea } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
+import { ukDateISO } from "@/lib/utils/time";
 
 export interface NamedEntity {
   id: string;
@@ -32,7 +33,7 @@ interface ChatMessage {
   showDownloadPdf?: boolean;
 }
 
-const PROMPT_CHIPS = ["Which staff are overdue training?", "Summarise this week's visits", "Generate August CQC report"];
+const PROMPT_CHIPS = ["Which staff are overdue training?", "Summarise this week's visits", `Generate ${new Date().toLocaleDateString("en-GB", { month: "long", timeZone: "Europe/London" })} CQC report`];
 
 const ALERT_STYLES: Record<BriefingAlertItem["type"], string> = {
   danger: "bg-danger-red-light text-danger-red",
@@ -58,7 +59,7 @@ function generateId(): string {
 }
 
 function nowLabel(): string {
-  return new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
 }
 
 function initialsOf(name: string): string {
@@ -82,7 +83,7 @@ export function CopilotChat({
   const briefingRequested = useRef(false);
 
   useEffect(() => {
-    const key = `copilot_briefed_${new Date().toISOString().slice(0, 10)}`;
+    const key = `copilot_briefed_${ukDateISO()}`;
     if (typeof window === "undefined" || briefingRequested.current) return;
     briefingRequested.current = true;
     let cached = false;
@@ -109,7 +110,7 @@ export function CopilotChat({
         {
           id: generateId(),
           role: "ai",
-          content: `Good morning, ${managerFirstName}. Here's your briefing for ${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}.`,
+          content: `Good morning, ${managerFirstName}. Here's your briefing for ${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" })}.`,
           timestamp: nowLabel(),
           briefing: data.briefing!,
         },
@@ -153,9 +154,13 @@ export function CopilotChat({
     }).catch(() => null);
 
     if (!response || !response.ok || !response.body) {
+      const unavailable =
+        response?.status === 403
+          ? "AI Copilot is included in paid plans. Choose a plan in Settings → Plan & usage to turn it on."
+          : "AI Copilot is temporarily unavailable. Please try again shortly.";
       setMessages((current) =>
         current.map((m) =>
-          m.id === aiMessageId ? { ...m, content: "AI Copilot is temporarily unavailable. Please try again shortly.", streaming: false } : m,
+          m.id === aiMessageId ? { ...m, content: unavailable, streaming: false } : m,
         ),
       );
       setSending(false);

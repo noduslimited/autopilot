@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AuthLogo } from "../_components/AuthLogo";
 import { GoogleIcon } from "../_components/GoogleIcon";
@@ -52,7 +52,6 @@ type VerifyState =
 // invitation link"). No dedicated mockup exists for this screen; built to
 // match the Login/Register visual language plus the PRD's written spec.
 export function InvitationAcceptForm({ token }: { token: string }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [state, setState] = useState<VerifyState>({ status: "verifying" });
   const [password, setPassword] = useState("");
@@ -161,8 +160,13 @@ export function InvitationAcceptForm({ token }: { token: string }) {
         await supabase.from("users").update({ status: "active" }).eq("id", userId);
       }
 
-      // Auth route + authenticated session -> middleware redirects to role home.
-      router.refresh();
+      // Leave the token URL with a full navigation: refreshing
+      // /register?token=… re-triggered proxy.ts's "stale session on an
+      // invite link" sign-out and logged the brand-new user straight back
+      // out (found 2026-10-15, every acceptance). /login with a session is
+      // redirected by the middleware to the user's role home.
+      window.location.replace("/login");
+      return;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {

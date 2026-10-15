@@ -37,7 +37,7 @@ export async function IncidentsTab({ clientId }: { clientId: string }) {
               >
                 <div>
                   <p className="text-body font-medium text-text-primary">
-                    {TYPE_LABELS[incident.incident_type] ?? incident.incident_type} · {new Date(incident.created_at).toLocaleDateString("en-GB")}
+                    {TYPE_LABELS[incident.incident_type] ?? incident.incident_type} · {new Date(incident.created_at).toLocaleDateString("en-GB", { timeZone: "Europe/London" })}
                   </p>
                   <p className="text-secondary text-text-secondary">
                     {carer ? `${carer.first_name} ${carer.last_name}` : "Unknown"} · {incident.incident_ref}

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Input, FieldLabel } from "@/components/ui/Input";
 import { ConfirmDialog } from "@/components/ui/Modal";
+import { ukDateISO } from "@/lib/utils/time";
 
 interface OrgProfile {
   id: string;
@@ -127,7 +128,7 @@ export function OrganisationProfileForm({ org }: { org: OrgProfile }) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `autopilot-export-${new Date().toISOString().slice(0, 10)}.zip`;
+    link.download = `autopilot-export-${ukDateISO()}.zip`;
     link.click();
     URL.revokeObjectURL(url);
   }

@@ -1,11 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { ClientListClient, type ClientListItem } from "./ClientListClient";
+import { ukDateISO, ukDayRange } from "@/lib/utils/time";
 
 // Source: PRD section 4.3 (Clients)
 
+// UK calendar date (Europe/London), held at UTC midnight so date arithmetic stays simple.
 function startOfTodayUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return new Date(`${ukDateISO()}T00:00:00Z`);
 }
 
 function calculateAge(dob: string): number {
@@ -46,8 +47,8 @@ export default async function ClientsPage() {
       .from("visits")
       .select("client_id, status, scheduled_start")
       .eq("org_id", orgId)
-      .gte("scheduled_start", todayStart.toISOString())
-      .lt("scheduled_start", todayEnd.toISOString())
+      .gte("scheduled_start", ukDayRange(ukDateISO()).start)
+      .lt("scheduled_start", ukDayRange(ukDateISO()).end)
       .order("scheduled_start", { ascending: true }),
     supabase.from("incidents").select("client_id").eq("org_id", orgId).eq("status", "open"),
   ]);

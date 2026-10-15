@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { callClaude, estimateCost } from "@/lib/anthropic/client";
 import { describeExistingShift } from "@/lib/rota/conflicts";
+import { ukDateISO } from "@/lib/utils/time";
 
 // Source: Gokul, direct request 2026-09-03 — Rota redesign item 8.7
 // ("AI scheduling — plain-English text input, AI creates shifts via
@@ -18,9 +19,9 @@ const FEATURE = "rota_schedule";
 const DAILY_LIMIT = 30;
 const MAX_TOKENS = 1000;
 
+// UK calendar date (Europe/London), held at UTC midnight so date arithmetic stays simple.
 function startOfTodayUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return new Date(`${ukDateISO()}T00:00:00Z`);
 }
 
 interface RawShiftProposal {
@@ -91,7 +92,7 @@ export async function POST(request: Request) {
   }
 
   const now = new Date();
-  const todayLabel = now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const todayLabel = now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" });
 
   const aiPrompt = `A care manager wants to schedule rota shifts using plain English. Today is ${todayLabel} (${now.toISOString().slice(0, 10)}).
 

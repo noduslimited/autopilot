@@ -38,8 +38,9 @@ export function ReportsClient({
   const [savedConfirmation, setSavedConfirmation] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  async function handleGenerate() {
-    if (!prompt.trim()) return;
+  async function handleGenerate(promptOverride?: string) {
+    const promptText = (promptOverride ?? prompt).trim();
+    if (!promptText) return;
     setGenerating(true);
     setError(null);
     setReportText("");
@@ -49,9 +50,14 @@ export function ReportsClient({
     const response = await fetch("/api/ai/report", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: prompt.trim() }),
+      body: JSON.stringify({ prompt: promptText }),
     }).catch(() => null);
 
+    if (response?.status === 403) {
+      setError("AI reports are included in paid plans. Choose a plan in Settings → Plan & usage to turn them on.");
+      setGenerating(false);
+      return;
+    }
     if (!response || !response.ok || !response.body) {
       setError("Report generation is temporarily unavailable. Please try again shortly.");
       setGenerating(false);
@@ -128,7 +134,11 @@ export function ReportsClient({
             <button
               key={chip}
               type="button"
-              onClick={() => setPrompt(chip)}
+              onClick={() => {
+                setPrompt(chip);
+                void handleGenerate(chip);
+              }}
+              disabled={generating}
               className="rounded-[20px] border border-white/20 bg-white/10 px-3 py-1.5 text-secondary text-white hover:bg-white/20"
             >
               {chip}
@@ -144,7 +154,7 @@ export function ReportsClient({
             className="flex-1 rounded-input border border-white/20 bg-white/10 px-3 py-[9px] text-body text-white placeholder:text-[#B9C6E0] outline-none"
           />
           <Button
-            onClick={handleGenerate}
+            onClick={() => void handleGenerate()}
             disabled={generating || !prompt.trim()}
             className="!bg-nhs-light-blue !text-nhs-dark-blue"
           >

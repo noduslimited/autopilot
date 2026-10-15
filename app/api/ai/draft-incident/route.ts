@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { callClaude, estimateCost } from "@/lib/anthropic/client";
+import { ukDateISO } from "@/lib/utils/time";
 
 // Source: AI Feature Specification section 4.3 (Incident Report Draft),
 // section 5.1 (daily limit: 50 per org)
@@ -31,9 +32,9 @@ function isDraftIncidentBody(value: unknown): value is DraftIncidentBody {
   );
 }
 
+// UK calendar date (Europe/London), held at UTC midnight so date arithmetic stays simple.
 function startOfTodayUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return new Date(`${ukDateISO()}T00:00:00Z`);
 }
 
 export async function POST(request: Request) {

@@ -49,7 +49,7 @@ export async function DocumentsTab({ clientId }: { clientId: string }) {
                 <div>
                   <p className="text-body font-medium text-text-primary">{doc.name}</p>
                   <p className="text-secondary text-text-secondary">
-                    {new Date(doc.createdAt).toLocaleDateString("en-GB")} · {doc.uploaderName}
+                    {new Date(doc.createdAt).toLocaleDateString("en-GB", { timeZone: "Europe/London" })} · {doc.uploaderName}
                   </p>
                 </div>
               </div>

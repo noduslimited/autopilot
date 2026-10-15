@@ -3,6 +3,7 @@ import { PassThrough } from "node:stream";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { toCsv } from "@/lib/csv";
+import { ukDateISO } from "@/lib/utils/time";
 
 // Source: PRD section 10 (Data Export) — the authoritative file list is
 // clients / care_plans / visits / medications (eMAR) / incidents / staff
@@ -98,7 +99,7 @@ export async function GET() {
   return new Response(new Uint8Array(zipBuffer), {
     headers: {
       "Content-Type": "application/zip",
-      "Content-Disposition": `attachment; filename="autopilot-export-${new Date().toISOString().slice(0, 10)}.zip"`,
+      "Content-Disposition": `attachment; filename="autopilot-export-${ukDateISO()}.zip"`,
     },
   });
 }

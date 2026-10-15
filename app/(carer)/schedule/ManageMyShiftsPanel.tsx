@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Select, Textarea, FieldLabel, Input } from "@/components/ui/Input";
+import { ukDateISO } from "@/lib/utils/time";
 
 // Source: Gokul, direct request 2026-09-04 — carer mobile portal item 5.
 // Replaces the single "Request shift swap or time off" button with 5
@@ -25,7 +26,7 @@ export interface ColleagueOption {
 type PanelKind = "time_off" | "shift_swap" | "sick" | "holiday" | "shift_issue" | null;
 
 function shiftLabel(shift: MyShiftOption): string {
-  const dateLabel = new Date(`${shift.shift_date}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  const dateLabel = new Date(`${shift.shift_date}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "Europe/London" });
   const timeLabel = shift.start_time && shift.end_time ? `${shift.start_time.slice(0, 5)} to ${shift.end_time.slice(0, 5)}` : "";
   return timeLabel ? `${dateLabel} — ${timeLabel}` : dateLabel;
 }
@@ -280,8 +281,8 @@ function ShiftSwapForm({ myShifts, colleagues, onClose }: { myShifts: MyShiftOpt
 }
 
 function SickReportForm({ onClose }: { onClose: () => void }) {
-  const [dateFrom, setDateFrom] = useState(new Date().toISOString().slice(0, 10));
-  const [dateTo, setDateTo] = useState(new Date().toISOString().slice(0, 10));
+  const [dateFrom, setDateFrom] = useState(ukDateISO());
+  const [dateTo, setDateTo] = useState(ukDateISO());
   const [returnDate, setReturnDate] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);

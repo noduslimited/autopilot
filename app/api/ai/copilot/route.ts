@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { callClaude, streamClaude, estimateCost } from "@/lib/anthropic/client";
 import { gatherCopilotContext, gatherFamilyMessagesContext } from "@/lib/ai/copilotContext";
+import { ukDateISO } from "@/lib/utils/time";
 
 // Source: AI Feature Specification section 4.7 (Morning Briefing) and
 // PRD section 4.9 (AI Copilot chat). Both request types share one daily
@@ -11,9 +12,9 @@ import { gatherCopilotContext, gatherFamilyMessagesContext } from "@/lib/ai/copi
 const FEATURE = "copilot_message";
 const DAILY_LIMIT = 100;
 
+// UK calendar date (Europe/London), held at UTC midnight so date arithmetic stays simple.
 function startOfTodayUTC(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return new Date(`${ukDateISO()}T00:00:00Z`);
 }
 
 interface ChatMessage {

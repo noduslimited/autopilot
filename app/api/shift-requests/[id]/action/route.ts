@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { ukDayRange } from "@/lib/utils/time";
 
 // Source: Gokul, direct request 2026-09-04 — carer mobile portal item 5's
 // manager-side approve/decline, plus the "approved request visual
@@ -103,8 +104,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           .from("visits")
           .update({ status: "cancelled" })
           .eq("assigned_carer_id", shiftRequest.staff_id)
-          .gte("scheduled_start", `${date}T00:00:00`)
-          .lt("scheduled_start", `${addDaysISO(date, 1)}T00:00:00`)
+          .gte("scheduled_start", ukDayRange(date).start)
+          .lt("scheduled_start", ukDayRange(date).end)
           .eq("status", "scheduled");
       }
     } else if (shiftRequest.request_type === "shift_swap") {
@@ -143,8 +144,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         .from("visits")
         .update({ assigned_carer_id: shiftRequest.swap_with_staff_id })
         .eq("assigned_carer_id", shiftRequest.staff_id)
-        .gte("scheduled_start", `${shift.shift_date}T00:00:00`)
-        .lt("scheduled_start", `${addDaysISO(shift.shift_date, 1)}T00:00:00`)
+        .gte("scheduled_start", ukDayRange(shift.shift_date).start)
+        .lt("scheduled_start", ukDayRange(shift.shift_date).end)
         .in("status", ["scheduled", "in_progress"]);
     }
     // shift_issue: no rota_shifts/visits side-effect — approving simply

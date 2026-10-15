@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { EditClientDetailsButton } from "./EditClientDetailsButton";
 import { ClientAvatar } from "@/components/clients/ClientAvatar";
 import { CriticalBadges } from "@/components/clients/CriticalBadges";
 import { OverviewTab } from "./OverviewTab";
@@ -52,10 +53,10 @@ export default async function ClientProfilePage({
   searchParams,
 }: {
   params: Promise<{ clientId: string }>;
-  searchParams: Promise<{ tab?: string; created?: string; nokInviteError?: string }>;
+  searchParams: Promise<{ tab?: string; created?: string; nokInviteError?: string; edit?: string }>;
 }) {
   const { clientId } = await params;
-  const { tab, created, nokInviteError } = await searchParams;
+  const { tab, created, nokInviteError, edit } = await searchParams;
   const activeTab: TabKey = (TABS.find((t) => t.key === tab)?.key ?? "overview") as TabKey;
 
   const supabase = await createClient();
@@ -85,6 +86,13 @@ export default async function ClientProfilePage({
   }
 
   const carer = single(client.users);
+  const { data: carerRows } = await supabase
+    .from("users")
+    .select("id, first_name, last_name")
+    .eq("org_id", client.org_id)
+    .eq("role", "carer")
+    .eq("status", "active")
+    .order("first_name");
 
   return (
     <div className="p-5">
@@ -132,12 +140,11 @@ export default async function ClientProfilePage({
             </p>
           </div>
         </div>
-        <Link
-          href={`/clients/${client.id}?tab=${activeTab}&edit=1`}
-          className="rounded-btn border border-border-default bg-card-bg px-3.5 py-[7px] text-[12px] font-medium text-text-primary"
-        >
-          Edit
-        </Link>
+        <EditClientDetailsButton
+          client={client}
+          carers={(carerRows ?? []).map((c) => ({ id: c.id, name: `${c.first_name} ${c.last_name}` }))}
+          autoOpen={edit === "1"}
+        />
       </div>
 
       <div className="mt-5 flex gap-1 overflow-x-auto border-b border-border-default">

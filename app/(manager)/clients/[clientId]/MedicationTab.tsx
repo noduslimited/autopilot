@@ -66,7 +66,7 @@ export async function MedicationTab({ clientId }: { clientId: string }) {
                     <td className="py-3 px-4 text-body text-text-primary">{med.frequency}</td>
                     <td className="py-3 px-4 text-body text-text-primary">{med.prescribed_by ?? "—"}</td>
                     <td className="py-3 px-4 text-body text-text-primary">
-                      {lastAdministered ? new Date(lastAdministered.administered_at!).toLocaleString("en-GB") : "—"}
+                      {lastAdministered ? new Date(lastAdministered.administered_at!).toLocaleString("en-GB", { timeZone: "Europe/London" }) : "—"}
                     </td>
                     <td className="py-3 px-4 text-body text-text-primary">{compliance !== null ? `${compliance}%` : "—"}</td>
                   </tr>

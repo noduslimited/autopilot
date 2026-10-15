@@ -2,7 +2,7 @@
 
 import { Suspense, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Spinner } from "@/components/ui/Spinner";
 import { AuthLogo } from "../_components/AuthLogo";
@@ -25,7 +25,6 @@ export default function LoginPage() {
 }
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -42,7 +41,7 @@ function LoginForm() {
     setLoading(true);
 
     const supabase = createClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -55,10 +54,20 @@ function LoginForm() {
       return;
     }
 
-    // Middleware performs the role-based redirect on the next request — this
-    // page is an auth route, so refreshing it while authenticated triggers
-    // middleware's "redirect authenticated user away from auth routes" step.
-    router.refresh();
+    // Deactivated accounts can still authenticate with Supabase — refuse
+    // them here with an explanation instead of an unexplained bounce.
+    const { data: userRow } = await supabase.from("users").select("status").eq("id", signInData.user.id).maybeSingle();
+    if (userRow?.status === "deactivated") {
+      await supabase.auth.signOut({ scope: "local" });
+      setError(NOTICES["account-deactivated"]);
+      setLoading(false);
+      return;
+    }
+
+    // Full navigation (not router.refresh): the middleware's role-based
+    // redirect away from /login sometimes never landed after a soft
+    // refresh, leaving the user on the sign-in form (found 2026-10-15).
+    window.location.replace(window.location.href);
   }
 
   async function handleGoogleSignIn() {

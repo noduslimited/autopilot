@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+﻿import { NextResponse, type NextRequest } from "next/server";
 import { createMiddlewareClient } from "@/lib/supabase/middleware";
 import {
   isAuthRoute,
@@ -38,7 +38,7 @@ export async function proxy(request: NextRequest) {
   const now = Date.now();
 
   if (lastActive && now - lastActive > INACTIVITY_LIMIT_MS) {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     loginUrl.searchParams.set("notice", "session-expired");
@@ -61,7 +61,7 @@ export async function proxy(request: NextRequest) {
     .single();
 
   // No matching `users` row yet (e.g. a brief window during account
-  // creation before the auth trigger has run) — let the request through
+  // creation before the auth trigger has run) â€” let the request through
   // rather than redirect-looping.
   if (!userRow) {
     return response;
@@ -69,10 +69,10 @@ export async function proxy(request: NextRequest) {
 
   // Deactivated staff/family members retain their records (Database
   // Schema Document: "access is revoked but records are retained") but
-  // must not be able to use the app — Settings' "Deactivate" action (PRD
+  // must not be able to use the app â€” Settings' "Deactivate" action (PRD
   // 4.10) is meaningless without this actually being enforced.
   if (userRow.status === "deactivated") {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("notice", "account-deactivated");
     const deactivatedResponse = NextResponse.redirect(loginUrl);
@@ -88,7 +88,7 @@ export async function proxy(request: NextRequest) {
   if (isAuthRoute(pathname)) {
     // Exception: a staff/NOK invitation link (/register?token=...) or a
     // password-reset link (/update-password?token_hash=...) represents an
-    // explicit, out-of-band request to act as a specific account — not
+    // explicit, out-of-band request to act as a specific account â€” not
     // "visit the login page while already logged in". Found live in
     // Session 14's production smoke test: a browser with any existing
     // session silently bounced an invite link straight to that session's
@@ -103,7 +103,7 @@ export async function proxy(request: NextRequest) {
         (request.nextUrl.searchParams.has("token_hash") || request.nextUrl.searchParams.has("token")));
 
     if (hasAcceptToken) {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: "local" });
       const signedOutResponse = getResponse();
       signedOutResponse.cookies.delete(LAST_ACTIVE_COOKIE);
       return signedOutResponse;
@@ -119,10 +119,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(getRoleHomePage(role), request.url));
   }
 
-  // Trial expiry — managers only (PRD section 12 / TRD section 10.2): all
+  // Trial expiry â€” managers only (PRD section 12 / TRD section 10.2): all
   // manager routes redirect to /settings/billing except billing itself.
   // Computed directly from trial_end_date, not just the `trial_expired`
-  // status flag — the flag is now kept accurate by Session 11's daily
+  // status flag â€” the flag is now kept accurate by Session 11's daily
   // pg_cron job, but the direct date comparison stays as the primary
   // check since it can never lag behind by up to a day the way a
   // once-daily job can.
@@ -137,9 +137,9 @@ export async function proxy(request: NextRequest) {
       org?.status === "trial_expired" ||
       (org?.status === "trial" && org.trial_end_date && new Date(org.trial_end_date) < new Date());
 
-    // Payment failed / suspended — Gokul, direct request (2026-08-31):
+    // Payment failed / suspended â€” Gokul, direct request (2026-08-31):
     // 48 hours' grace from the moment the billing issue actually began
-    // (billing_issue_started_at, set/cleared by the Stripe webhook — see
+    // (billing_issue_started_at, set/cleared by the Stripe webhook â€” see
     // lib/stripe/webhook route), not an immediate lockout. A null
     // billing_issue_started_at (e.g. data predating this feature) means
     // the grace period hasn't started, so access is never blocked for
