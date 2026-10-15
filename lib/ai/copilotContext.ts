@@ -16,7 +16,15 @@ export async function gatherCopilotContext(supabase: SupabaseClient<Database>, o
   todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
   const todayISO = ukDateISO();
 
-  const [{ data: todayVisits }, { data: openIncidents }, { data: todayShifts }, { data: staffRows }, { data: trainingRows }] =
+  const [
+    { data: todayVisits },
+    { data: openIncidents },
+    { data: todayShifts },
+    { data: staffRows },
+    { data: trainingRows },
+    { data: clientRows },
+    { data: teamRows },
+  ] =
     await Promise.all([
       supabase
         .from("visits")
@@ -37,7 +45,33 @@ export async function gatherCopilotContext(supabase: SupabaseClient<Database>, o
         .not("shift_type", "in", "(sick_leave,off,annual_leave)"),
       supabase.from("staff").select("id, dbs_expiry").eq("org_id", orgId),
       supabase.from("training_records").select("staff_id, expiry_date").eq("org_id", orgId),
+      // Active client roster, so the Copilot can count, list and answer
+      // questions about clients (F-26).
+      supabase
+        .from("clients")
+        .select("client_ref, first_name, last_name, care_type, risk_level, users:assigned_carer_id(first_name, last_name)")
+        .eq("org_id", orgId)
+        .eq("status", "active")
+        .order("last_name"),
+      supabase
+        .from("users")
+        .select("first_name, last_name, role, status")
+        .eq("org_id", orgId)
+        .in("role", ["manager", "carer"])
+        .eq("status", "active"),
     ]);
+
+  const activeClients = (clientRows ?? []).map((c) => {
+    const carer = Array.isArray(c.users) ? c.users[0] : c.users;
+    return {
+      ref: c.client_ref,
+      name: `${c.first_name} ${c.last_name}`,
+      care_type: c.care_type,
+      risk_level: c.risk_level,
+      assigned_carer: carer ? `${carer.first_name} ${carer.last_name}` : "None assigned",
+    };
+  });
+  const activeStaff = (teamRows ?? []).map((u) => ({ name: `${u.first_name} ${u.last_name}`, role: u.role }));
 
   const visits = todayVisits ?? [];
   const today = new Date();
@@ -66,6 +100,10 @@ export async function gatherCopilotContext(supabase: SupabaseClient<Database>, o
     date: today.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" }),
     time: today.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" }),
     organisation_name: orgName,
+    active_clients_count: activeClients.length,
+    active_clients: activeClients,
+    active_staff_count: activeStaff.length,
+    active_staff: activeStaff,
     visits_today: {
       total: visits.length,
       completed: visits.filter((v) => v.status === "completed").length,
